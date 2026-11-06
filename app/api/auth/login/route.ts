@@ -29,6 +29,7 @@ export async function POST(req: Request) {
 
       const userByPin = await prisma.user.findFirst({
         where: { pin: cleanPin, isActive: true },
+        include: { branch: true },
       });
 
       if (!userByPin) {
@@ -46,6 +47,8 @@ export async function POST(req: Request) {
           username: userByPin.username,
           role: userByPin.role,
           phone: userByPin.phone,
+          branchId: userByPin.branchId,
+          branch: userByPin.branch,
           permissions: userByPin.permissions ? JSON.parse(userByPin.permissions) : [],
         },
       });
@@ -102,6 +105,7 @@ export async function POST(req: Request) {
         passwordHash: password,
         pin: pin,
       },
+      include: { branch: true },
     });
 
     if (!user) {
@@ -126,6 +130,8 @@ export async function POST(req: Request) {
         username: user.username,
         role: user.role,
         phone: user.phone,
+        branchId: user.branchId,
+        branch: user.branch,
         permissions: user.permissions ? JSON.parse(user.permissions) : [],
       },
     });

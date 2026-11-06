@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     const courierId = searchParams.get("courierId");
     const phone = searchParams.get("phone");
     const orderNumber = searchParams.get("orderNumber");
+    const branchId = searchParams.get("branchId");
 
     const where: any = {};
     if (status && status !== "ALL") where.status = status;
@@ -18,11 +19,13 @@ export async function GET(req: Request) {
     if (courierId) where.courierId = courierId;
     if (phone) where.customerPhone = phone;
     if (orderNumber) where.orderNumber = orderNumber;
+    if (branchId && branchId !== "ALL") where.branchId = branchId;
 
     const orders = await prisma.order.findMany({
       where,
       include: {
         courier: { select: { id: true, name: true, phone: true } },
+        branch: { select: { id: true, name: true, code: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -51,7 +54,14 @@ export async function POST(req: Request) {
       paymentMethod,
       cashierName,
       notes,
+      branchId,
     } = body;
+
+    let activeBranchId = branchId;
+    if (!activeBranchId) {
+      const defaultBranch = await prisma.branch.findFirst({ orderBy: { createdAt: "asc" } });
+      activeBranchId = defaultBranch?.id || null;
+    }
 
     if (!items || !customerName || !customerPhone) {
       return NextResponse.json(
@@ -94,6 +104,7 @@ export async function POST(req: Request) {
     const newOrder = await prisma.order.create({
       data: {
         orderNumber,
+        branchId: activeBranchId,
         orderType: orderType || "delivery",
         customerId: customer.id,
         customerName: customerName.trim(),
@@ -115,7 +126,7 @@ export async function POST(req: Request) {
       },
     });
 
-    // Deduct stock for ordered items
+    // Deduct stock for ordered items (Global and Branch-Specific)
     try {
       const orderItems = typeof items === "string" ? JSON.parse(items) : items;
       if (Array.isArray(orderItems)) {
@@ -136,6 +147,38 @@ export async function POST(req: Request) {
                   inStock: remainingStock > 0,
                 },
               });
+
+              // Branch specific stock deduction
+              if (activeBranchId) {
+                const bStock = await prisma.branchStock.findUnique({
+                  where: { branchId_productId: { branchId: activeBranchId, productId: item.productId } },
+                });
+                if (bStock) {
+                  const bRem = Math.max(0, Number((bStock.stockQty - deductionQty).toFixed(3)));
+                  await prisma.branchStock.update({
+                    where: { id: bStock.id },
+                    data: {
+                      stockQty: bRem,
+                      totalOut: { increment: deductionQty },
+                    },
+                  });
+
+                  // Log Movement in Stock Card
+                  await prisma.stockMovement.create({
+                    data: {
+                      branchId: activeBranchId,
+                      productId: item.productId,
+                      productName: item.nameAr || prod.nameAr,
+                      type: "SALE",
+                      qty: -deductionQty,
+                      balanceAfter: bRem,
+                      reference: `فاتورة #${orderNumber}`,
+                      notes: `مبيعات ${orderType === "pos" ? "كاشير صالة" : "دليفري"}`,
+                      recordedBy: cashierName || "الكاشير",
+                    },
+                  });
+                }
+              }
             }
           }
         }
@@ -148,6 +191,7 @@ export async function POST(req: Request) {
     if (orderType === "pos") {
       await prisma.treasuryTransaction.create({
         data: {
+          branchId: activeBranchId,
           type: "IN",
           category: "POS_SALE",
           amount: Number(totalAmount) || 0,

@@ -13,6 +13,8 @@ export async function GET() {
         pin: true,
         phone: true,
         role: true,
+        branchId: true,
+        branch: { select: { id: true, name: true, code: true } },
         permissions: true,
         isActive: true,
         createdAt: true,
@@ -29,7 +31,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, username, password, pin, phone, role, permissions } = body;
+    const { name, username, password, pin, phone, role, permissions, branchId } = body;
 
     if (!name || !username || !password || !pin) {
       return NextResponse.json({ success: false, error: "الاسم واسم المستخدم وكلمة المرور وكود PIN مطلوبة" }, { status: 400 });
@@ -49,9 +51,11 @@ export async function POST(req: Request) {
         pin: pin.trim(),
         phone: phone?.trim() || null,
         role: role || "cashier",
+        branchId: branchId ? branchId : null,
         permissions: typeof permissions === "string" ? permissions : JSON.stringify(permissions || []),
         isActive: true,
       },
+      include: { branch: true },
     });
 
     return NextResponse.json({ success: true, user: newUser, message: "تم إضافة الحساب بنجاح" });
@@ -64,7 +68,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { id, isActive, name, username, phone, password, pin, role, permissions } = body;
+    const { id, isActive, name, username, phone, password, pin, role, permissions, branchId } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: "معرف المستخدم مطلوب" }, { status: 400 });
@@ -88,11 +92,13 @@ export async function PATCH(req: Request) {
     if (password && password.trim()) updateData.passwordHash = password.trim();
     if (pin && pin.trim()) updateData.pin = pin.trim();
     if (role && user.username !== "maestro") updateData.role = role;
+    if (branchId !== undefined && user.username !== "maestro") updateData.branchId = branchId ? branchId : null;
     if (permissions) updateData.permissions = typeof permissions === "string" ? permissions : JSON.stringify(permissions);
 
     const updated = await prisma.user.update({
       where: { id },
       data: updateData,
+      include: { branch: true },
     });
 
     return NextResponse.json({ success: true, user: updated, message: "تم تحديث بيانات الحساب بنجاح" });

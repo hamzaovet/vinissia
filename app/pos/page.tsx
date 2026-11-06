@@ -11,8 +11,6 @@ import {
   Printer,
   Barcode,
   Search,
-  CheckCircle2,
-  ArrowRight,
   ShieldCheck,
   User,
   ShoppingBag,
@@ -21,9 +19,10 @@ import {
   RotateCcw,
   X,
   Check,
-  Clock,
   Lock,
   LogOut,
+  MapPin,
+  Building2,
 } from "lucide-react";
 
 interface Product {
@@ -59,10 +58,20 @@ interface PosItem {
   weightGrams?: number;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+  code: string;
+  address: string;
+  phone: string;
+}
+
 export default function PosPage() {
   const router = useRouter();
 
   const [staff, setStaff] = useState<any>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCat, setSelectedCat] = useState("ALL");
@@ -103,6 +112,9 @@ export default function PosPage() {
         const u = JSON.parse(saved);
         if (u.role === "owner" || u.role === "manager" || u.role === "cashier") {
           setStaff(u);
+          if (u.branchId) {
+            setSelectedBranchId(u.branchId);
+          }
           setIsLocked(false);
           return;
         }
@@ -131,6 +143,9 @@ export default function PosPage() {
         }
         localStorage.setItem("vinissia_staff_user", JSON.stringify(data.user));
         setStaff(data.user);
+        if (data.user.branchId) {
+          setSelectedBranchId(data.user.branchId);
+        }
         setIsLocked(false);
         setUnlockPin("");
       } else {
@@ -143,17 +158,25 @@ export default function PosPage() {
     }
   };
 
-  // Load Data
+  // Load Branches, Categories, and Products
   useEffect(() => {
     async function init() {
       try {
         setLoading(true);
-        const [resC, resP] = await Promise.all([
+        const [resB, resC, resP] = await Promise.all([
+          fetch("/api/branches"),
           fetch("/api/categories"),
           fetch("/api/products"),
         ]);
+        const dataB = await resB.json();
         const dataC = await resC.json();
         const dataP = await resP.json();
+        if (dataB.success && dataB.branches) {
+          setBranches(dataB.branches);
+          if (!selectedBranchId && dataB.branches.length > 0) {
+            setSelectedBranchId(dataB.branches[0].id);
+          }
+        }
         if (dataC.success) setCategories(dataC.categories || []);
         if (dataP.success) setProducts(dataP.products || []);
       } catch (err) {
@@ -286,7 +309,6 @@ export default function PosPage() {
     }
 
     // 2. Scale Barcode parsing (Prefix 20 or 21)
-    // Format: 20 + 5 digits PLU + 5 digits Weight/Price + 1 check digit
     if ((code.startsWith("20") || code.startsWith("21")) && code.length >= 12) {
       const plu = code.substring(2, 7);
       const weightOrPrice = Number(code.substring(7, 12));
@@ -317,6 +339,8 @@ export default function PosPage() {
   const cashNum = Number(cashGiven) || 0;
   const changeDue = cashNum > total ? cashNum - total : 0;
 
+  const currentBranch = branches.find((b) => b.id === selectedBranchId) || branches[0];
+
   // Complete Order
   const handleCompleteOrder = async () => {
     if (posCart.length === 0) return;
@@ -327,6 +351,7 @@ export default function PosPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          branchId: selectedBranchId || staff?.branchId || null,
           orderType: "pos",
           customerName,
           customerPhone,
@@ -345,13 +370,18 @@ export default function PosPage() {
           totalAmount: total,
           paymentMethod,
           cashierName: staff?.name || "كاشير الصالة",
-          notes: "فاتورة كاشير صالة",
+          notes: `فاتورة كاشير صالة - ${currentBranch?.name || "الفرع الرئيسي"}`,
         }),
       });
 
       const data = await res.json();
       if (data.success && data.order) {
-        setLastOrder(data.order);
+        setLastOrder({
+          ...data.order,
+          branchName: currentBranch?.name || "فرع حدائق القبة (الرئيسي)",
+          branchAddress: currentBranch?.address || "80 شارع المدينة المنورة، حدائق القبة",
+          branchPhone: currentBranch?.phone || "01018671000",
+        });
         setPosCart([]);
         setCashGiven("");
         setTimeout(() => {
@@ -370,15 +400,21 @@ export default function PosPage() {
 
   if (isLocked) {
     return (
-      <div className="min-h-screen bg-[#070c17] text-white flex items-center justify-center p-4 font-sans" dir="rtl">
-        <div className="w-full max-w-sm bg-slate-900/95 border-2 border-amber-500/30 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl backdrop-blur-xl">
+      <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex items-center justify-center p-4 font-sans select-none" dir="rtl">
+        <div className="w-full max-w-sm bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
+          {/* Brand Emblem */}
           <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-black text-2xl mx-auto shadow-lg shadow-amber-500/20">
-              🔒
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border-2 border-amber-400 bg-amber-50/50 shadow-sm">
+              <span className="text-amber-500 text-lg">🥛</span>
+              <div className="text-right">
+                <span className="font-black text-slate-900 text-base tracking-wide block leading-none">فِـيـنِـيـسِـيـا</span>
+                <span className="text-[10px] text-amber-700 font-bold block mt-0.5">مش بس لبن وزبادي</span>
+              </div>
+              <span className="text-[11px] font-serif italic text-blue-900 font-bold ml-1">Venice</span>
             </div>
-            <h2 className="text-xl font-black text-white">نقطة بيع كاشير صالة ألبان فينيسيا</h2>
-            <p className="text-xs text-slate-400">
-              شاشة الكاشير محمية ومقفولة. أدخل كود الـ PIN لفتح درج ونظام البيع
+            <h2 className="text-lg font-black text-slate-900 pt-1">نقطة بيع كاشير الصالة السريعة</h2>
+            <p className="text-xs text-slate-500">
+              الشاشة محمية. أدخل كود الـ PIN لفتح درج الكاشير
             </p>
           </div>
 
@@ -390,15 +426,15 @@ export default function PosPage() {
                 readOnly
                 value={unlockPin}
                 placeholder="••••••"
-                className="w-full py-3.5 px-4 rounded-2xl bg-slate-950 border-2 border-slate-700 text-center font-mono text-2xl font-black text-amber-400 tracking-widest"
+                className="w-full py-3 px-4 rounded-2xl bg-slate-50 border-2 border-slate-200 text-center font-mono text-2xl font-black text-amber-600 tracking-widest focus:outline-none"
               />
             </div>
 
             {unlockError && (
-              <p className="text-xs text-rose-400 text-center font-bold">{unlockError}</p>
+              <p className="text-xs text-rose-600 text-center font-bold bg-rose-50 py-1.5 rounded-xl border border-rose-200">{unlockError}</p>
             )}
 
-            {/* Keypad */}
+            {/* Numeric Keypad */}
             <div className="grid grid-cols-3 gap-2">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                 <button
@@ -410,7 +446,7 @@ export default function PosPage() {
                       setUnlockError("");
                     }
                   }}
-                  className="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-white font-mono font-black text-lg transition shadow-sm"
+                  className="py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 active:bg-amber-500 active:text-slate-950 text-slate-800 font-mono font-black text-lg transition shadow-sm border border-slate-200/60"
                 >
                   {num}
                 </button>
@@ -418,7 +454,7 @@ export default function PosPage() {
               <button
                 type="button"
                 onClick={() => setUnlockPin("")}
-                className="py-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold text-xs transition"
+                className="py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition border border-rose-200"
               >
                 مسح C
               </button>
@@ -430,14 +466,14 @@ export default function PosPage() {
                     setUnlockError("");
                   }
                 }}
-                className="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-white font-mono font-black text-lg transition shadow-sm"
+                className="py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 active:bg-amber-500 active:text-slate-950 text-slate-800 font-mono font-black text-lg transition shadow-sm border border-slate-200/60"
               >
                 0
               </button>
               <button
                 type="button"
                 onClick={() => setUnlockPin((prev) => prev.slice(0, -1))}
-                className="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"
+                className="py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition border border-slate-200"
               >
                 ⌫
               </button>
@@ -447,18 +483,18 @@ export default function PosPage() {
               type="button"
               disabled={unlocking || unlockPin.length === 0}
               onClick={handleQuickUnlock}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm transition shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm transition shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <ShieldCheck className="w-4 h-4" />
               <span>{unlocking ? "جارٍ التحقق..." : "فتح درج الكاشير 🔓"}</span>
             </button>
           </div>
 
-          <div className="pt-2 text-center border-t border-slate-800 flex justify-between text-xs text-slate-400">
-            <Link href="/" className="hover:text-white transition">
+          <div className="pt-2 text-center border-t border-slate-100 flex justify-between text-xs text-slate-500">
+            <Link href="/" className="hover:text-slate-900 transition">
               المتجر الرئيسي
             </Link>
-            <Link href="/login?redirect=/pos" className="text-amber-400 font-bold hover:underline">
+            <Link href="/login?redirect=/pos" className="text-amber-600 font-bold hover:underline">
               تسجيل بالاسم والباسورد ⬅
             </Link>
           </div>
@@ -468,42 +504,65 @@ export default function PosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060a12] text-white flex flex-col font-sans select-none">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans select-none">
       {/* POS Top Bar */}
-      <header className="bg-slate-950 border-b border-slate-800 px-4 py-3 flex items-center justify-between no-print">
+      <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-sm no-print">
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2">
             <span className="text-2xl">🥛</span>
-            <span className="font-black text-white text-lg">ألبان فينيسيا — كاشير الصالة</span>
+            <div className="text-right">
+              <span className="font-black text-slate-900 text-base block leading-none">ألبان فينيسيا</span>
+              <span className="text-[10px] text-amber-700 font-bold block">مش بس لبن وزبادي</span>
+            </div>
           </Link>
-          <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold font-mono">
-            نظام الموازين والـ POS السريع
-          </span>
+
+          {/* Branch Pill or Switcher */}
+          {staff?.role === "owner" || staff?.role === "manager" ? (
+            <div className="flex items-center gap-1 bg-amber-50 border border-amber-300 rounded-xl px-2.5 py-1 text-xs font-bold text-amber-900">
+              <Building2 className="w-3.5 h-3.5 text-amber-600" />
+              <select
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+                className="bg-transparent text-xs font-bold text-amber-900 focus:outline-none cursor-pointer"
+              >
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    📍 {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-bold">
+              <MapPin className="w-3.5 h-3.5 text-blue-600" />
+              <span>{currentBranch?.name || "فرع الصالة"}</span>
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
           {staff && (
-            <div className="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
-              <User className="w-3.5 h-3.5 text-amber-400" />
+            <div className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 font-medium">
+              <User className="w-3.5 h-3.5 text-amber-600" />
               <span>{staff.name}</span>
             </div>
           )}
 
           <button
             onClick={() => setIsLocked(true)}
-            className="py-1.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-bold text-amber-300 transition flex items-center gap-1"
+            className="py-1.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-xs font-bold text-amber-900 transition flex items-center gap-1"
             title="قفل الكاشير فورياً لحماية الدرج"
           >
-            <Lock className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">قفل الشاشة</span>
+            <Lock className="w-3.5 h-3.5 text-amber-700" />
+            <span className="hidden sm:inline">قفل الدرج</span>
           </button>
 
           {(staff?.role === "owner" || staff?.role === "manager") && (
             <Link
               href="/admin"
-              className="py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 transition flex items-center gap-1"
+              className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs font-bold text-slate-800 transition flex items-center gap-1"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
               <span>لوحة الإدارة</span>
             </Link>
           )}
@@ -514,7 +573,7 @@ export default function PosPage() {
               setStaff(null);
               setIsLocked(true);
             }}
-            className="py-1.5 px-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-bold text-rose-300 transition flex items-center gap-1"
+            className="py-1.5 px-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-bold text-rose-700 transition flex items-center gap-1"
             title="تسجيل خروج"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -530,14 +589,14 @@ export default function PosPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {/* Barcode Form */}
             <form onSubmit={handleBarcodeSubmit} className="relative">
-              <Barcode className="w-4 h-4 text-amber-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+              <Barcode className="w-4 h-4 text-amber-600 absolute right-3.5 top-1/2 -translate-y-1/2" />
               <input
                 ref={barcodeRef}
                 type="text"
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
                 placeholder="امسح الباركود أو كود الميزان (PLU)..."
-                className="w-full py-2.5 pr-10 pl-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-white font-mono focus:outline-none focus:border-amber-400 transition"
+                className="w-full py-2.5 pr-10 pl-3 rounded-2xl bg-white border border-slate-200 text-xs text-slate-900 font-mono shadow-sm focus:outline-none focus:border-amber-400 transition"
               />
             </form>
 
@@ -549,7 +608,7 @@ export default function PosPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="بحث سريع باسم الصنف..."
-                className="w-full py-2.5 pr-10 pl-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-400 transition"
+                className="w-full py-2.5 pr-10 pl-3 rounded-2xl bg-white border border-slate-200 text-xs text-slate-900 shadow-sm focus:outline-none focus:border-amber-400 transition"
               />
             </div>
           </div>
@@ -560,8 +619,8 @@ export default function PosPage() {
               onClick={() => setSelectedCat("ALL")}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition ${
                 selectedCat === "ALL"
-                  ? "bg-amber-500 text-slate-950 font-black shadow-md"
-                  : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                  ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                  : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
               }`}
             >
               الكل ({products.length})
@@ -572,8 +631,8 @@ export default function PosPage() {
                 onClick={() => setSelectedCat(c.id)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition ${
                   selectedCat === c.id
-                    ? "bg-amber-500 text-slate-950 font-black shadow-md"
-                    : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                    ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                    : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
                 }`}
               >
                 {c.nameAr}
@@ -596,26 +655,26 @@ export default function PosPage() {
                       addToPosCart(p);
                     }
                   }}
-                  className="bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-amber-500/50 rounded-2xl p-3 text-right flex flex-col justify-between h-28 transition group shadow-sm"
+                  className="bg-white hover:bg-amber-50/40 border border-slate-200/90 hover:border-amber-400 rounded-2xl p-3 text-right flex flex-col justify-between h-28 transition group shadow-sm"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-slate-400 font-mono truncate">{p.categoryName}</span>
+                      <span className="text-slate-400 truncate max-w-[100px]">{p.categoryName}</span>
                       {p.isWeighted && (
-                        <span className="text-cyan-400 font-bold flex items-center gap-0.5">
+                        <span className="text-blue-600 font-bold flex items-center gap-0.5 bg-blue-50 px-1.5 py-0.5 rounded-md">
                           <Scale className="w-3 h-3" />
                           <span>وزني</span>
                         </span>
                       )}
                     </div>
-                    <h4 className="font-bold text-white text-xs line-clamp-2 group-hover:text-amber-400 transition leading-snug">
+                    <h4 className="font-bold text-slate-900 text-xs line-clamp-2 group-hover:text-amber-700 transition leading-snug">
                       {p.nameAr}
                     </h4>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 font-mono">
-                    <span className="text-sm font-black text-amber-400">{rate} ج.م</span>
-                    <span className="text-[10px] text-slate-400">{p.unit}</span>
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 font-mono">
+                    <span className="text-sm font-black text-amber-600">{rate} ج.م</span>
+                    <span className="text-[10px] text-slate-500">{p.unit}</span>
                   </div>
                 </button>
               );
@@ -624,15 +683,18 @@ export default function PosPage() {
         </div>
 
         {/* LEFT SIDE: POS Cart & Checkout Ticket (4-5 Cols) */}
-        <div className="lg:col-span-5 xl:col-span-4 bg-[#0a101d] border-r border-slate-800 p-4 flex flex-col justify-between h-[calc(100vh-60px)]">
+        <div className="lg:col-span-5 xl:col-span-4 bg-white border-r border-slate-200 p-4 flex flex-col justify-between h-[calc(100vh-60px)] shadow-sm">
           {/* Cart Items List */}
           <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs font-bold text-slate-300">
-              <span>الفاتورة الحالية ({posCart.length} صنف)</span>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-xs font-bold text-slate-700">
+              <span className="flex items-center gap-1.5">
+                <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
+                <span>الفاتورة الحالية ({posCart.length} صنف)</span>
+              </span>
               {posCart.length > 0 && (
                 <button
                   onClick={() => setPosCart([])}
-                  className="text-rose-400 hover:underline text-[11px] flex items-center gap-1"
+                  className="text-rose-600 hover:underline text-[11px] flex items-center gap-1"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>تصفير</span>
@@ -641,26 +703,26 @@ export default function PosPage() {
             </div>
 
             {posCart.length === 0 ? (
-              <div className="text-center py-20 text-slate-500 space-y-2">
-                <ShoppingBag className="w-10 h-10 mx-auto opacity-40" />
+              <div className="text-center py-20 text-slate-400 space-y-2">
+                <ShoppingBag className="w-10 h-10 mx-auto opacity-30 text-slate-400" />
                 <p className="text-xs">اضغط على الأصناف أو امسح الباركود للبدء</p>
               </div>
             ) : (
               posCart.map((item) => (
                 <div
                   key={item.id}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between gap-2"
+                  className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 flex items-center justify-between gap-2"
                 >
                   <div className="flex-1 min-w-0">
-                    <h5 className="font-bold text-white text-xs truncate">{item.nameAr}</h5>
-                    <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                      <span className="text-amber-400 font-bold">{item.unit}</span>
+                    <h5 className="font-bold text-slate-900 text-xs truncate">{item.nameAr}</h5>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+                      <span className="text-amber-700 font-bold">{item.unit}</span>
                       <span>({item.price} ج.م)</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5">
+                    <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
                       <button
                         onClick={() => {
                           if (item.qty <= 1) {
@@ -671,11 +733,11 @@ export default function PosPage() {
                             );
                           }
                         }}
-                        className="w-5 h-5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 flex items-center justify-center text-xs"
+                        className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs"
                       >
                         <Minus className="w-2.5 h-2.5" />
                       </button>
-                      <span className="w-6 text-center font-mono font-bold text-xs text-white">
+                      <span className="w-6 text-center font-mono font-bold text-xs text-slate-900">
                         {item.qty}
                       </span>
                       <button
@@ -684,19 +746,19 @@ export default function PosPage() {
                             prev.map((i) => (i.id === item.id ? { ...i, qty: i.qty + 1 } : i))
                           );
                         }}
-                        className="w-5 h-5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 flex items-center justify-center text-xs"
+                        className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs"
                       >
                         <Plus className="w-2.5 h-2.5" />
                       </button>
                     </div>
 
-                    <span className="font-mono font-bold text-xs text-amber-400 w-14 text-left">
+                    <span className="font-mono font-bold text-xs text-amber-700 w-14 text-left">
                       {item.price * item.qty} ج
                     </span>
 
                     <button
                       onClick={() => setPosCart((prev) => prev.filter((i) => i.id !== item.id))}
-                      className="text-slate-500 hover:text-rose-400 p-1"
+                      className="text-slate-400 hover:text-rose-600 p-1"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -707,11 +769,11 @@ export default function PosPage() {
           </div>
 
           {/* Totals & Payment Section */}
-          <div className="pt-3 border-t border-slate-800 space-y-3 bg-[#0a101d]">
+          <div className="pt-3 border-t border-slate-200 space-y-3 bg-white">
             {/* Total Display */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400">الإجمالي النهائي:</span>
-              <span className="text-2xl font-black font-mono text-amber-400">{total} ج.م</span>
+            <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3 flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900">الإجمالي النهائي المطلوب:</span>
+              <span className="text-2xl font-black font-mono text-amber-700">{total} ج.م</span>
             </div>
 
             {/* Payment Method Selector */}
@@ -729,8 +791,8 @@ export default function PosPage() {
                     onClick={() => setPaymentMethod(m.key as any)}
                     className={`py-2 px-1.5 rounded-xl border flex items-center justify-center gap-1 transition ${
                       paymentMethod === m.key
-                        ? "bg-amber-500 text-slate-950 font-black border-amber-400"
-                        : "bg-slate-900 text-slate-300 border-slate-800"
+                        ? "bg-amber-500 text-slate-950 font-black border-amber-400 shadow-sm"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
@@ -744,18 +806,18 @@ export default function PosPage() {
             {paymentMethod === "cash" && (
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">المدفوع من العميل:</label>
+                  <label className="text-[10px] text-slate-500 block mb-1">المدفوع من العميل:</label>
                   <input
                     type="number"
                     value={cashGiven}
                     onChange={(e) => setCashGiven(e.target.value)}
                     placeholder="اكتب المبلغ..."
-                    className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-white text-xs focus:outline-none focus:border-amber-400"
+                    className="w-full py-2 px-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-slate-900 text-xs focus:outline-none focus:border-amber-400"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">الباقي للعميل:</label>
-                  <div className="py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-400 font-bold">
+                  <label className="text-[10px] text-slate-500 block mb-1">الباقي للعميل:</label>
+                  <div className="py-2 px-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs text-emerald-700 font-bold">
                     {changeDue} ج.م
                   </div>
                 </div>
@@ -766,7 +828,7 @@ export default function PosPage() {
             <button
               onClick={handleCompleteOrder}
               disabled={posCart.length === 0 || isSubmitting}
-              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+              className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
             >
               <Printer className="w-4 h-4" />
               <span>{isSubmitting ? "جارٍ الحفظ والطباعة..." : "حفظ الفاتورة وطباعة الإيصال 🖨️"}</span>
@@ -777,23 +839,23 @@ export default function PosPage() {
 
       {/* SCALE & WEIGHT SELECTION MODAL */}
       {scaleProduct && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-4 no-print">
-          <div className="relative w-full max-w-md bg-[#0a1220] border-2 border-amber-500/40 rounded-3xl p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 no-print" dir="rtl">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 space-y-4 shadow-2xl">
             <button
               onClick={() => setScaleProduct(null)}
-              className="absolute left-4 top-4 w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center"
+              className="absolute left-4 top-4 w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center"
             >
               <X className="w-4 h-4" />
             </button>
 
             <div className="space-y-1">
-              <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
+              <span className="text-xs font-bold text-amber-700 flex items-center gap-1">
                 <Scale className="w-3.5 h-3.5" />
                 <span>حاسبة ميزان الصالة الديجيتال</span>
               </span>
-              <h3 className="text-lg font-black text-white">{scaleProduct.nameAr}</h3>
-              <p className="text-xs text-slate-400 font-mono">
-                سعر الكيلو: <span className="font-bold text-amber-400">{scaleProduct.pricePerKg || scaleProduct.basePrice} ج.م</span>
+              <h3 className="text-lg font-black text-slate-900">{scaleProduct.nameAr}</h3>
+              <p className="text-xs text-slate-500 font-mono">
+                سعر الكيلو: <span className="font-bold text-amber-700">{scaleProduct.pricePerKg || scaleProduct.basePrice} ج.م</span>
               </p>
             </div>
 
@@ -817,25 +879,25 @@ export default function PosPage() {
                     }}
                     className={`p-2.5 rounded-xl border text-right transition flex items-center justify-between ${
                       scaleMode === "fraction" && scaleFraction === f.fraction
-                        ? "bg-amber-500 text-slate-950 font-black border-amber-400"
-                        : "bg-slate-900 border-slate-800 text-slate-300"
+                        ? "bg-amber-500 text-slate-950 font-black border-amber-400 shadow-sm"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
                     <span>{f.label}</span>
-                    <span className="font-mono">{p} ج</span>
+                    <span className="font-mono font-bold">{p} ج</span>
                   </button>
                 );
               })}
             </div>
 
             {/* Custom Amount / Custom Grams */}
-            <div className="space-y-2 pt-2 border-t border-slate-800 text-xs">
+            <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setScaleMode("amount")}
                   className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition ${
-                    scaleMode === "amount" ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-300"
+                    scaleMode === "amount" ? "bg-amber-500 text-slate-950 shadow-sm" : "bg-slate-100 text-slate-700"
                   }`}
                 >
                   طلب بمبلغ مالي (ج.م)
@@ -844,7 +906,7 @@ export default function PosPage() {
                   type="button"
                   onClick={() => setScaleMode("grams")}
                   className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition ${
-                    scaleMode === "grams" ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-300"
+                    scaleMode === "grams" ? "bg-amber-500 text-slate-950 shadow-sm" : "bg-slate-100 text-slate-700"
                   }`}
                 >
                   وزن بالجرام (جم)
@@ -857,7 +919,7 @@ export default function PosPage() {
                   value={scaleAmount}
                   onChange={(e) => setScaleAmount(e.target.value)}
                   placeholder="المبلغ المطلوب بالجنيه..."
-                  className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-white text-xs"
+                  className="w-full py-2 px-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-slate-900 text-xs focus:outline-none focus:border-amber-400"
                 />
               )}
 
@@ -867,23 +929,23 @@ export default function PosPage() {
                   value={scaleGrams}
                   onChange={(e) => setScaleGrams(e.target.value)}
                   placeholder="الوزن بالجرام (مثلاً 350)..."
-                  className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-white text-xs"
+                  className="w-full py-2 px-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-slate-900 text-xs focus:outline-none focus:border-amber-400"
                 />
               )}
             </div>
 
-            <div className="pt-2 border-t border-slate-800 flex gap-2">
+            <div className="pt-2 border-t border-slate-100 flex gap-2">
               <button
                 type="button"
                 onClick={() => setScaleProduct(null)}
-                className="py-2.5 px-4 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold"
+                className="py-2.5 px-4 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200"
               >
                 إلغاء
               </button>
               <button
                 type="button"
                 onClick={handleConfirmScale}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-sm"
               >
                 إضافة للفاتورة
               </button>
@@ -894,12 +956,14 @@ export default function PosPage() {
 
       {/* PRINTABLE THERMAL RECEIPT (80mm width) */}
       {lastOrder && (
-        <div id="thermal-receipt" className="hidden print:block p-4 max-w-[80mm] mx-auto text-black font-mono text-xs leading-tight">
+        <div id="thermal-receipt" className="hidden print:block p-4 max-w-[80mm] mx-auto text-black font-mono text-xs leading-tight" dir="rtl">
           <div className="text-center space-y-1 pb-2 border-b border-black">
             <h2 className="text-base font-black">ألبان فينيسيا</h2>
-            <p className="text-[10px]">80 المدينة المنورة — حدائق القبة</p>
-            <p className="text-[10px]">هاتف: 01018671000 | 0224382540</p>
-            <p className="text-xs font-bold pt-1">فاتورة كاشير صالة #{lastOrder.orderNumber}</p>
+            <p className="text-[10px] font-bold">مش بس لبن وزبادي</p>
+            <p className="text-[10px]">{lastOrder.branchName || "فرع حدائق القبة (الرئيسي)"}</p>
+            <p className="text-[9px]">{lastOrder.branchAddress || "80 المدينة المنورة — حدائق القبة"}</p>
+            <p className="text-[9px]">هاتف: {lastOrder.branchPhone || "01018671000"}</p>
+            <p className="text-xs font-bold pt-1">فاتورة صالة #{lastOrder.orderNumber}</p>
             <p className="text-[9px]">{new Date().toLocaleString("ar-EG")}</p>
           </div>
 

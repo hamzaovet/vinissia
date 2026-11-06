@@ -31,6 +31,13 @@ export async function GET(req: Request) {
         category: {
           select: { id: true, nameAr: true, icon: true },
         },
+        branchStocks: {
+          include: {
+            branch: {
+              select: { id: true, name: true, code: true },
+            },
+          },
+        },
       },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     });
@@ -104,6 +111,33 @@ export async function POST(req: Request) {
         isActive: true,
       },
     });
+
+    // Initialize BranchStock for each branch
+    const allBranches = await prisma.branch.findMany();
+    const qtyPerBranch = Number((Number(stockQty || 0) / Math.max(1, allBranches.length)).toFixed(2));
+    for (const b of allBranches) {
+      await prisma.branchStock.create({
+        data: {
+          branchId: b.id,
+          productId: newProduct.id,
+          stockQty: qtyPerBranch,
+          openingStock: qtyPerBranch,
+          totalIn: qtyPerBranch,
+        },
+      });
+      await prisma.stockMovement.create({
+        data: {
+          branchId: b.id,
+          productId: newProduct.id,
+          productName: newProduct.nameAr,
+          type: "OPENING",
+          qty: qtyPerBranch,
+          balanceAfter: qtyPerBranch,
+          reference: "إضافة صنف جديد للقائمة",
+          recordedBy: "الإدارة",
+        },
+      });
+    }
 
     return NextResponse.json({ success: true, product: newProduct, message: "تمت إضافة الصنف بنجاح" });
   } catch (error: any) {

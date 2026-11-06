@@ -8,6 +8,24 @@ generator client {
 }
 
 // ----------------------------------------------------
+// 0. MULTI-BRANCH SYSTEM (منظومة الفروع المتعددة)
+// ----------------------------------------------------
+model Branch {
+  id           String                @id @default(cuid())
+  name         String // e.g. "فرع حدائق القبة (الرئيسي)", "فرع الوايلي الكبير"
+  code         String                @unique // "HQ-QOBBA", "BR-WAYLI"
+  address      String
+  phone        String
+  whatsapp     String?
+  isActive     Boolean               @default(true)
+  createdAt    DateTime              @default(now())
+  users        User[]
+  orders       Order[]
+  stocks       BranchStock[]
+  transactions TreasuryTransaction[]
+}
+
+// ----------------------------------------------------
 // 1. STAFF & ROLE-BASED USERS (المستخدمين والصلاحيات)
 // ----------------------------------------------------
 model User {
@@ -18,6 +36,8 @@ model User {
   pin          String   @default("157230") // PIN Code مخفي في الواجهة
   phone        String?  @unique
   role         String   @default("owner") // owner (Maestro), manager, cashier, delivery, chef
+  branchId     String? // null للمالك والمدير العام (إشراف كامل على كل الفروع)، أو محدد لموظف الفرع
+  branch       Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   permissions  String? // JSON array: ["pos", "inventory", "orders", "settings", "reports", "users"]
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -28,9 +48,9 @@ model User {
 // ----------------------------------------------------
 model Category {
   id          String    @id @default(cuid())
-  nameAr      String    @unique // ألبان طازجة ورايب، أجبان مصنعة، لحوم مصنعة ومبردات، حلويات ومعلبات ذاتية
+  nameAr      String    @unique
   nameEn      String?
-  icon        String? // Lucide icon name or emoji
+  icon        String?
   description String?
   sortOrder   Int       @default(0)
   isActive    Boolean   @default(true)
@@ -39,33 +59,71 @@ model Category {
 }
 
 // ----------------------------------------------------
-// 3. DYNAMIC PRODUCTS & WEIGHTS (المنتجات والموازين)
+// 3. DYNAMIC PRODUCTS & SCALE MENU (المنتجات والموازين)
 // ----------------------------------------------------
 model Product {
-  id           String   @id @default(cuid())
+  id           String        @id @default(cuid())
   nameAr       String
   nameEn       String?
   categoryId   String
-  category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   categoryName String
-  unit         String   @default("1 كجم") // 1 كجم، 1 لتر، طبق، علبة، طاجن، قطعة
-  barcode      String?  @unique
-  pluCode      String? // كود ميزان الباركود الإلكتروني (e.g. 00101)
-  isWeighted   Boolean  @default(false) // صنف وزني بالميزان والكسور (1/8، 1/4، 1/2، 1 كجم) أو بمبلغ مالي
+  unit         String        @default("1 كجم") // 1 كجم، قطعة، طبق، علبة، طاجن
+  barcode      String?       @unique
+  pluCode      String? // كود ميزان الباركود الإلكتروني
+  isWeighted   Boolean       @default(false)
   pricePerKg   Float? // سعر الكيلو للأصناف الوزنية
   basePrice    Float // سعر بيع الوحدة أو الكيلو
-  costPrice    Float    @default(0) // تكلفة الإنتاج أو الشراء
-  isHouseMade  Boolean  @default(true) // مصنع يدوي في معمل فينيسيا
-  inStock      Boolean  @default(true)
-  stockQty     Float    @default(100) // يدعم الكسور للوزن
-  minStockQty  Float    @default(10)
+  costPrice    Float         @default(0) // تكلفة الإنتاج أو الشراء
+  isHouseMade  Boolean       @default(true)
+  inStock      Boolean       @default(true)
+  stockQty     Float         @default(100) // إجمالي المخزن عبر الفروع
+  minStockQty  Float         @default(10)
   image        String?
   description  String?
-  badge        String? // "صنع فينيسيا 🥛", "طازج اليوم ⭐", "كامل الدسم 100%"
-  sortOrder    Int      @default(0)
-  isActive     Boolean  @default(true)
+  badge        String? // "صنع فينيسيا 🥛", "طازج اليوم ⭐", "مش بس لبن"
+  sortOrder    Int           @default(0)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  branchStocks BranchStock[]
+}
+
+// ----------------------------------------------------
+// 3.1 BRANCH SPECIFIC INVENTORY (مخزن وبضاعة كل فرع مستقلة)
+// ----------------------------------------------------
+model BranchStock {
+  id            String    @id @default(cuid())
+  branchId      String
+  branch        Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockQty      Float     @default(0) // الرصيد الفعلي الحالي بالفرع
+  openingStock  Float     @default(0) // مخزون أول المدة (الجرد الفعلي عند التثبيت)
+  totalIn       Float     @default(0) // إجمالي الوارد والتوريدات
+  totalOut      Float     @default(0) // إجمالي المنصرف ومبيعات الكاشير
+  minStockQty   Float     @default(10)
+  lastAuditDate DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([branchId, productId])
+}
+
+// ----------------------------------------------------
+// 3.2 STOCK MOVEMENT / CARD (كارت الصنف وسجل الحركات)
+// ----------------------------------------------------
+model StockMovement {
+  id           String   @id @default(cuid())
+  branchId     String
+  productId    String
+  productName  String
+  type         String // "OPENING" (مخزون أول المدة), "SUPPLY" (إذن توريد), "SALE" (بيع كاشير/دليفري), "AUDIT_ADJUST" (تسوية جرد)
+  qty          Float // الكمية (+ أو -)
+  balanceAfter Float
+  reference    String? // رقم الفاتورة أو إذن التوريد
+  notes        String?
+  recordedBy   String?
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 }
 
 // ----------------------------------------------------
@@ -77,11 +135,11 @@ model Customer {
   phone              String    @unique
   email              String?
   address            String?
-  zone               String? // حدائق القبة، الوايلي، منشية الصدر، دير الملاك...
-  landmark           String? // علامة مميزة
+  zone               String?
+  landmark           String?
   notes              String?
   isVerified         Boolean   @default(false)
-  verificationMethod String? // "GMAIL", "WHATSAPP", "PHONE"
+  verificationMethod String?
   otpCode            String?
   otpExpires         DateTime?
   totalOrders        Int       @default(0)
@@ -96,6 +154,8 @@ model Customer {
 model Order {
   id              String    @id @default(cuid())
   orderNumber     String    @unique // VIN-1001
+  branchId        String?
+  branch          Branch?   @relation(fields: [branchId], references: [id])
   orderType       String    @default("delivery") // pos (صالة), delivery (توصيل), takeaway (استلام من الفرع)
   customerId      String?
   customer        Customer? @relation(fields: [customerId], references: [id])
@@ -128,7 +188,7 @@ model Courier {
   vehicleType       String?  @default("موتوسيكل سريع")
   isAvailable       Boolean  @default(true)
   activeOrdersCount Int      @default(0)
-  pendingCash       Float    @default(0) // مبالغ نقدية معلقة مع الطيار
+  pendingCash       Float    @default(0)
   createdAt         DateTime @default(now())
   orders            Order[]
 }
@@ -139,7 +199,7 @@ model Courier {
 model SystemSettings {
   id                String   @id @default("default")
   storeName         String   @default("ألبان فينيسيا")
-  tagline           String   @default("خير المزارع الطبيعي على أصوله — ألبان طازجة، أجبان معتقة، وحلويات بلدي فاخرة")
+  tagline           String   @default("مش بس لبن وزبادي — خير المزارع الطبيعي على أصوله")
   address           String   @default("80 المدينة المنورة، الوايلي الكبير شرق، حدائق القبة، محافظة القاهرة")
   googleMapsUrl     String   @default("https://share.google/UrPJjxJ0JpFBb4OHt")
   phone             String   @default("0224382540")
@@ -151,7 +211,7 @@ model SystemSettings {
   isOpen            Boolean  @default(true)
   workingHours      String   @default("يومياً من 7:00 صباحاً حتى 2:00 بعد منتصف الليل")
   weightScalePrefix String   @default("20,21")
-  announcement      String?  @default("🥛 ألبان طازجة وارد اليوم من المزرعة مباشرة — جرب الرز بلبن والزبادي البلدي الفاخر!")
+  announcement      String?  @default("🥛 ألبان طازجة وارد اليوم من المزرعة مباشرة — مش بس لبن وزبادي!")
   updatedAt         DateTime @updatedAt
 }
 
@@ -160,6 +220,8 @@ model SystemSettings {
 // ----------------------------------------------------
 model TreasuryTransaction {
   id           String   @id @default(cuid())
+  branchId     String?
+  branch       Branch?  @relation(fields: [branchId], references: [id])
   type         String // IN, OUT
   category     String // POS_SALE, DELIVERY_COLLECTION, EXPENSE, SUPPLIER
   amount       Float

@@ -11,13 +11,12 @@ import {
   ArrowRight,
   AlertCircle,
   Sparkles,
-  Store,
 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [username, setUsername] = useState("maestro");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +25,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password || !pin) {
-      setError("يرجى ملء جميع الحقول المطلوبة للدخول");
+      setError("يرجى إدخال اسم المستخدم وكلمة المرور وكود الـ PIN السري");
       return;
     }
 
@@ -37,7 +36,11 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, pin }),
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password.trim(),
+          pin: pin.trim(),
+        }),
       });
 
       const data = await res.json();
@@ -50,71 +53,90 @@ export default function LoginPage() {
           router.push("/admin");
         }
       } else {
-        setError(data.error || "فشل تسجيل الدخول");
+        setError(data.error || "بيانات الدخول غير صحيحة، يرجى التحقق وإعادة المحاولة");
       }
     } catch (err) {
       console.error(err);
-      setError("تعذر الاتصال بالخادم، يرجى المحاولة لاحقاً");
+      setError("تعذر الاتصال بالخادم، يرجى التأكد من اتصال الإنترنت");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickFill = (u: string, p: string, pi: string) => {
-    setUsername(u);
-    setPassword(p);
-    setPin(pi);
-  };
-
   return (
-    <div className="min-h-screen bg-[#080e1a] flex flex-col justify-center items-center p-4">
+    <div
+      className="min-h-screen bg-[#f8fafc] flex flex-col justify-center items-center p-4 font-sans selection:bg-amber-100"
+      dir="rtl"
+    >
       <div className="w-full max-w-md space-y-6">
-        {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center gap-2 group mb-2">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-black text-2xl shadow-lg">
-              🥛
+        {/* Brand Oval Emblem (Inspired by Venice Sign) */}
+        <div className="text-center space-y-3">
+          <Link href="/" className="inline-block group transition transform hover:scale-[1.02]">
+            <div className="relative px-8 py-3.5 rounded-full bg-white border-2 border-slate-900 shadow-xl inline-flex flex-col items-center justify-center ring-4 ring-amber-400/40">
+              {/* Arabic Venice Brand */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight font-serif">
+                  فِـيـنِـيـسِـيـا
+                </span>
+                <span className="text-amber-500 text-xl font-bold">💧</span>
+              </div>
+
+              {/* Slogan & Venice Cursive */}
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs font-black text-rose-600">
+                  مش بس لبن وزبادي
+                </span>
+                <span className="text-[11px] font-serif italic text-slate-500 font-semibold">
+                  Venice
+                </span>
+              </div>
             </div>
-            <span className="text-2xl font-black text-white group-hover:text-amber-400 transition">
-              ألبان فينيسيا
-            </span>
           </Link>
 
-          <h2 className="text-xl font-bold text-white">بوابة تسجيل دخول الطاقم والإدارة</h2>
-          <p className="text-xs text-slate-400">
-            صلاحيات المالك (المايسترو)، مدير الفرع، كاشير الصالة، ومسؤول التوصيل
-          </p>
+          <div>
+            <h2 className="text-xl font-black text-slate-900">
+              بوابة تسجيل دخول الطاقم والإدارة
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              صلاحيات المالك (المايسترو)، مدير الفروع، وكاشير الصالة
+            </p>
+          </div>
         </div>
 
-        {/* Login Form Card */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl">
+        {/* Login Form Card (Fresh Milk Theme) */}
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl shadow-slate-200/50">
           {error && (
-            <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>{error}</span>
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span className="font-semibold">{error}</span>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4 text-xs">
             {/* Username */}
             <div className="space-y-1.5">
-              <label className="text-slate-300 font-bold block">اسم المستخدم (Username)</label>
+              <label className="text-slate-700 font-bold block">
+                اسم المستخدم (Username) *
+              </label>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   required
+                  autoFocus
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="maestro"
-                  className="w-full py-2.5 pr-10 pl-3 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono focus:outline-none focus:border-amber-400 transition"
+                  placeholder="اسم المستخدم المسجل لك"
+                  className="w-full py-3 pr-10 pl-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-slate-300 font-bold block">كلمة المرور (Password)</label>
+              <label className="text-slate-700 font-bold block">
+                كلمة المرور (Password) *
+              </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -122,17 +144,22 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="•••••••••"
-                  className="w-full py-2.5 pr-10 pl-3 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono focus:outline-none focus:border-amber-400 transition"
+                  placeholder="••••••••"
+                  className="w-full py-3 pr-10 pl-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition"
                 />
               </div>
             </div>
 
-            {/* PIN Code (Hidden as password type) */}
+            {/* PIN Code */}
             <div className="space-y-1.5">
-              <label className="text-slate-300 font-bold block">كود الأمان والـ PIN (مخفي)</label>
+              <div className="flex justify-between items-center">
+                <label className="text-slate-700 font-bold block">
+                  كود الأمان والـ PIN السري (مخفي) *
+                </label>
+                <span className="text-[10px] text-slate-400 font-mono">6 أرقام</span>
+              </div>
               <div className="relative">
-                <KeyRound className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                <KeyRound className="w-4 h-4 text-amber-500 absolute right-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
                   required
@@ -140,7 +167,7 @@ export default function LoginPage() {
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   placeholder="••••••"
-                  className="w-full py-2.5 pr-10 pl-3 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono tracking-widest focus:outline-none focus:border-amber-400 transition"
+                  className="w-full py-3 pr-10 pl-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-base font-mono tracking-widest text-center focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition"
                 />
               </div>
             </div>
@@ -149,63 +176,22 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+              className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-sm transition flex items-center justify-center gap-2 shadow-xl shadow-slate-900/10 disabled:opacity-50 mt-2"
             >
-              <ShieldCheck className="w-4 h-4" />
-              <span>{loading ? "جارٍ التحقق والتسجيل..." : "دخول المنظومة"}</span>
+              <ShieldCheck className="w-4 h-4 text-amber-400" />
+              <span>{loading ? "جارٍ التحقق والتسجيل..." : "دخول المنظومة الآمن"}</span>
             </button>
           </form>
-
-          {/* Quick Demo Credentials Helpers */}
-          <div className="pt-4 border-t border-slate-800 space-y-2">
-            <span className="text-[11px] text-slate-400 block text-center font-bold">
-              تعبئة سريعة لحسابات الاختبار المجهزة:
-            </span>
-
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <button
-                type="button"
-                onClick={() => handleQuickFill("maestro", "123456789", "157230")}
-                className="py-1.5 px-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold transition text-right truncate"
-              >
-                👑 المالك (المايسترو)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickFill("manager", "manager123", "112233")}
-                className="py-1.5 px-2 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 font-bold transition text-right truncate"
-              >
-                💼 مدير الفرع
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickFill("cashier", "cashier123", "998877")}
-                className="py-1.5 px-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold transition text-right truncate"
-              >
-                📟 كاشير صالة POS
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickFill("delivery", "delivery123", "445566")}
-                className="py-1.5 px-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 font-bold transition text-right truncate"
-              >
-                🛵 كابتن دليفري
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Back to Home */}
         <div className="text-center">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition"
           >
             <ArrowRight className="w-4 h-4" />
-            <span>العودة لصفحة المتجر الرئيسية</span>
+            <span>العودة لصفحة متجر ألبان فينيسيا</span>
           </Link>
         </div>
       </div>

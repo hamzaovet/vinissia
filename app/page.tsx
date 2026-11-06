@@ -19,7 +19,7 @@ import {
   ExternalLink,
   QrCode,
   ShieldCheck,
-  ChevronLeft,
+  Store,
 } from "lucide-react";
 
 interface Product {
@@ -102,48 +102,45 @@ export default function HomePage() {
     const ratePerKg = weightedProduct.pricePerKg || weightedProduct.basePrice;
 
     if (selectedFraction === "eighth") {
-      const price = Math.round((ratePerKg * 0.125) * 10) / 10;
       addItem(weightedProduct, {
         type: "fraction",
         value: 125,
-        label: "ثمن كجم (125 جم)",
-        price,
+        label: "ثمن كيلو (125 جم)",
+        price: ratePerKg * 0.125,
       });
     } else if (selectedFraction === "quarter") {
-      const price = Math.round((ratePerKg * 0.25) * 10) / 10;
       addItem(weightedProduct, {
         type: "fraction",
         value: 250,
-        label: "ربع كجم (250 جم)",
-        price,
+        label: "ربع كيلو (250 جم)",
+        price: ratePerKg * 0.25,
       });
     } else if (selectedFraction === "half") {
-      const price = Math.round((ratePerKg * 0.5) * 10) / 10;
       addItem(weightedProduct, {
         type: "fraction",
         value: 500,
-        label: "نصف كجم (500 جم)",
-        price,
+        label: "نصف كيلو (500 جم)",
+        price: ratePerKg * 0.5,
       });
     } else if (selectedFraction === "kilo") {
       addItem(weightedProduct, {
         type: "fraction",
         value: 1000,
-        label: "1 كجم (1000 جم)",
+        label: "1 كيلو جرام",
         price: ratePerKg,
       });
     } else if (selectedFraction === "amount") {
-      const amt = Number(customAmountEgp) || 30;
-      const calculatedGrams = Math.round((amt / ratePerKg) * 1000);
+      const egp = Number(customAmountEgp) || 30;
+      const calculatedGrams = Math.round((egp / ratePerKg) * 1000);
       addItem(weightedProduct, {
         type: "amount",
-        value: amt,
-        label: `بـ ${amt} ج.م (~${calculatedGrams} جم)`,
-        price: amt,
+        value: egp,
+        label: `بـ ${egp} ج.م (${calculatedGrams} جم)`,
+        price: egp,
       });
     } else if (selectedFraction === "grams") {
       const g = Number(customGrams) || 250;
-      const price = Math.round(((g / 1000) * ratePerKg) * 10) / 10;
+      const price = Number(((g / 1000) * ratePerKg).toFixed(1));
       addItem(weightedProduct, {
         type: "grams",
         value: g,
@@ -156,38 +153,59 @@ export default function HomePage() {
   };
 
   return (
-    <div className="space-y-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* 1. HERO BANNER */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0d1a2d] via-[#091220] to-[#050b14] border-2 border-amber-500/30 p-6 sm:p-10 shadow-2xl">
+    <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 font-sans" dir="rtl">
+      {/* 1. HERO BANNER (Fresh Dairy Cream & Venice Emblem) */}
+      <section className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/90 p-6 sm:p-10 shadow-xl shadow-slate-200/40">
         <div className="relative z-10 max-w-2xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-bold">
-            <span>🥛</span>
-            <span>معمل ألبان فينيسيا — حدائق القبة والوايلي الكبير</span>
+          {/* Venice Official Oval Emblem */}
+          <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-white border-2 border-slate-900 shadow-lg ring-4 ring-amber-400/40">
+            <span className="text-2xl sm:text-3xl font-black text-slate-950 font-serif">
+              فِـيـنِـيـسِـيـا
+            </span>
+            <span className="text-amber-500 text-lg">💧</span>
+            <span className="text-xs font-black text-rose-600 border-r-2 border-slate-300 pr-2.5">
+              مش بس لبن وزبادي
+            </span>
+            <span className="italic font-serif text-slate-400 text-xs hidden sm:inline">
+              Venice
+            </span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black text-white leading-tight">
+          <h1 className="text-3xl sm:text-5xl font-black text-slate-950 leading-tight">
             خير المزارع الطبيعي <br />
             <span className="gold-gradient-text">طازج فلاحي على أصوله</span>
           </h1>
 
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            لبن جاموسي طازج كامل الدسم، أجبان معتقة بالميزان (رومي بطارخ، براميلي فلفل، إسطنبولي)، لحوم مصنعة ومبردات، وحلويات مصنعة يدوياً في معملنا يومياً (رز بلبن، زبادي بلدي، وزبادو فواكه فريش).
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            لبن جاموسي طازج كامل الدسم، حلويات مصنعة يدوياً بالمعمل يومياً (رز بلبن، مهلبية، أم علي، وقشطوطة فاخرة)، لحوم مصنعة ومبردات، وسمن وزبدة وقشطة مزارعنا الطبيعية 100%.
           </p>
+
+          {/* Branches Badges */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+            <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-bold flex items-center gap-1.5 shadow-sm">
+              <Store className="w-4 h-4 text-amber-500" />
+              <span>فرع حدائق القبة (80 ش المدينة المنورة)</span>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-bold flex items-center gap-1.5 shadow-sm">
+              <Store className="w-4 h-4 text-sky-500" />
+              <span>فرع سكة الوايلي الكبير</span>
+            </div>
+          </div>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <button
               onClick={() => setIsOpen(true)}
-              className="py-3 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs sm:text-sm transition flex items-center gap-2 shadow-lg shadow-amber-500/20"
+              className="py-3 px-6 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs sm:text-sm transition flex items-center gap-2 shadow-lg shadow-slate-900/15"
             >
-              <Truck className="w-4 h-4" />
+              <Truck className="w-4 h-4 text-amber-400" />
               <span>اطلب دليفري الآن لباب بيتك</span>
             </button>
 
             <button
               onClick={() => setShowQrModal(true)}
-              className="py-3 px-4 rounded-2xl bg-slate-900/90 border border-amber-500/30 hover:border-amber-400 text-amber-300 font-bold text-xs sm:text-sm transition flex items-center gap-2"
+              className="py-3 px-4 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-800 font-bold text-xs sm:text-sm transition flex items-center gap-2 shadow-sm"
             >
-              <QrCode className="w-4 h-4 text-amber-400" />
+              <QrCode className="w-4 h-4 text-amber-500" />
               <span>كارت الـ 2 QR Codes</span>
             </button>
 
@@ -195,21 +213,21 @@ export default function HomePage() {
               href="https://share.google/UrPJjxJ0JpFBb4OHt"
               target="_blank"
               rel="noreferrer"
-              className="py-3 px-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs sm:text-sm transition flex items-center gap-1.5"
+              className="py-3 px-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs sm:text-sm transition flex items-center gap-1.5 shadow-sm"
             >
-              <MapPin className="w-4 h-4 text-rose-400" />
-              <span>موقعنا بالخريطة</span>
+              <MapPin className="w-4 h-4 text-rose-500" />
+              <span>موقع الفرع بالخريطة</span>
             </a>
           </div>
         </div>
 
         {/* Floating Dairy Art */}
-        <div className="absolute left-6 top-1/2 -translate-y-1/2 hidden lg:flex flex-col items-center justify-center opacity-85">
-          <div className="text-8xl filter drop-shadow-[0_10px_20px_rgba(245,158,11,0.25)] animate-pulse">
+        <div className="absolute left-8 top-1/2 -translate-y-1/2 hidden lg:flex flex-col items-center justify-center">
+          <div className="w-32 h-32 rounded-full bg-amber-50 border-4 border-amber-200 flex items-center justify-center text-7xl shadow-xl shadow-amber-500/10 animate-pulse">
             🥛
           </div>
-          <span className="text-xs font-mono font-bold text-amber-400 mt-2 bg-slate-900/80 px-3 py-1 rounded-full border border-amber-500/30">
-            طازج 100% بدون إضافات
+          <span className="text-xs font-black text-amber-900 mt-3 bg-amber-100 px-3.5 py-1 rounded-full border border-amber-300">
+            طبيعي 100% بدون أي مواد حافظة
           </span>
         </div>
       </section>
@@ -223,8 +241,8 @@ export default function HomePage() {
               onClick={() => setSelectedCat("ALL")}
               className={`px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
                 selectedCat === "ALL"
-                  ? "bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20"
-                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
+                  ? "bg-slate-900 text-white font-black shadow-md shadow-slate-900/10"
+                  : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-sm"
               }`}
             >
               <span>جميع الأصناف ({products.length})</span>
@@ -236,8 +254,8 @@ export default function HomePage() {
                 onClick={() => setSelectedCat(c.id)}
                 className={`px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
                   selectedCat === c.id
-                    ? "bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20"
-                    : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
+                    ? "bg-slate-900 text-white font-black shadow-md shadow-slate-900/10"
+                    : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-sm"
                 }`}
               >
                 <span>{c.nameAr}</span>
@@ -252,288 +270,255 @@ export default function HomePage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث عن لبن، رومي، رز بلبن..."
-              className="w-full py-2.5 pr-10 pl-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition"
+              placeholder="ابحث عن أرز بلبن، بسطرمة، سمنة..."
+              className="w-full py-2.5 pr-10 pl-3 rounded-2xl bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-sm transition"
             />
           </div>
         </div>
       </section>
 
-      {/* 3. PRODUCTS GRID */}
+      {/* 3. PRODUCT GRID */}
       <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <span>قائمة المنتجات الطازجة</span>
-            <span className="text-xs font-normal text-slate-400 font-mono">
-              ({filteredProducts.length} صنف متاح)
-            </span>
-          </h2>
-        </div>
-
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <div key={n} className="h-44 rounded-3xl bg-slate-900/60 border border-slate-800 animate-pulse" />
-            ))}
+          <div className="py-20 text-center space-y-3">
+            <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs text-slate-500">جارٍ تحميل قائمة أصناف ألبان فينيسيا...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="py-16 text-center bg-white rounded-3xl border border-slate-200 p-8 space-y-3 shadow-sm">
+            <span className="text-4xl block">🔍</span>
+            <h3 className="text-base font-bold text-slate-900">لم نتمكن من العثور على نتائج</h3>
+            <p className="text-xs text-slate-500">جرب البحث بكلمة أخرى أو اختر قسماً مختلفاً من الأعلى</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredProducts.map((p) => {
-              const rate = p.isWeighted ? (p.pricePerKg || p.basePrice) : p.basePrice;
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+            {filteredProducts.map((prod) => (
+              <div
+                key={prod.id}
+                className="bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-5 flex flex-col justify-between hover:border-amber-400 hover:shadow-xl hover:shadow-slate-200/60 transition group relative"
+              >
+                {/* Badge */}
+                {prod.badge && (
+                  <div className="absolute top-3 right-3 z-10">
+                    <span className="text-[10px] font-black bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-full shadow-sm">
+                      {prod.badge}
+                    </span>
+                  </div>
+                )}
 
-              return (
-                <div
-                  key={p.id}
-                  className="glass-card rounded-3xl p-5 flex flex-col justify-between space-y-3 hover:border-amber-500/40 transition group relative overflow-hidden"
-                >
-                  <div className="space-y-2">
-                    {/* Badge & Unit */}
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                        {p.badge || (p.isHouseMade ? "صنع فينيسيا 🥛" : p.categoryName)}
-                      </span>
+                <div className="space-y-3 pt-4">
+                  {/* Icon Card Representation */}
+                  <div className="w-full h-24 rounded-2xl bg-gradient-to-tr from-slate-50 to-amber-50/50 flex items-center justify-center text-4xl group-hover:scale-105 transition border border-slate-100">
+                    {prod.categoryName.includes("حلو") || prod.categoryName.includes("لبن")
+                      ? "🥣"
+                      : prod.categoryName.includes("لحوم")
+                      ? "🥩"
+                      : prod.categoryName.includes("سمن") || prod.categoryName.includes("مزارع")
+                      ? "🧈"
+                      : prod.categoryName.includes("عسل")
+                      ? "🍯"
+                      : "🥛"}
+                  </div>
 
-                      {p.isWeighted ? (
-                        <span className="flex items-center gap-1 text-[11px] font-bold text-cyan-400 font-mono bg-cyan-950/40 px-2 py-0.5 rounded-md border border-cyan-500/20">
-                          <Scale className="w-3 h-3" />
-                          <span>بالميزان</span>
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-mono text-slate-400">
-                          {p.unit}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Product Name */}
-                    <h3 className="font-bold text-white text-base group-hover:text-amber-400 transition leading-snug">
-                      {p.nameAr}
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-medium block">
+                      {prod.categoryName}
+                    </span>
+                    <h3 className="text-sm sm:text-base font-black text-slate-950 line-clamp-1 group-hover:text-amber-600 transition">
+                      {prod.nameAr}
                     </h3>
-
-                    {p.description && (
-                      <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                        {p.description}
+                    {prod.description && (
+                      <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                        {prod.description}
                       </p>
                     )}
                   </div>
+                </div>
 
-                  {/* Price & Add Button */}
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                    <div>
-                      <span className="text-lg font-black font-mono text-amber-400">
-                        {rate} <span className="text-xs font-normal">ج.م</span>
+                {/* Price and Action Button */}
+                <div className="pt-4 border-t border-slate-100 space-y-2 mt-3">
+                  <div className="flex items-baseline justify-between">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-base sm:text-lg font-black font-mono text-slate-950">
+                        {prod.isWeighted ? prod.pricePerKg : prod.basePrice}
                       </span>
-                      {p.isWeighted && (
-                        <span className="text-[10px] text-slate-400 block font-mono">
-                          / لكل كجم
-                        </span>
-                      )}
+                      <span className="text-[11px] font-bold text-slate-500">ج.م</span>
                     </div>
 
-                    {p.isWeighted ? (
-                      <button
-                        onClick={() => {
-                          setWeightedProduct(p);
-                          setSelectedFraction("quarter");
-                        }}
-                        className="py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-300 font-bold text-xs transition flex items-center gap-1.5 border border-amber-500/30"
-                      >
-                        <Scale className="w-3.5 h-3.5" />
-                        <span>وزن وكسور</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => addItem(p)}
-                        className="py-2 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-1 shadow-md shadow-amber-500/20"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>إضافة</span>
-                      </button>
-                    )}
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      {prod.isWeighted ? "لكل 1 كجم" : `لكل ${prod.unit}`}
+                    </span>
                   </div>
+
+                  {/* Add Button */}
+                  {prod.isWeighted ? (
+                    <button
+                      onClick={() => {
+                        setWeightedProduct(prod);
+                        setSelectedFraction("quarter");
+                      }}
+                      className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-slate-900/10"
+                    >
+                      <Scale className="w-3.5 h-3.5 text-amber-400" />
+                      <span>تحديد الوزن أو المبلغ ⚖️</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => addItem(prod)}
+                      className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>أضف للسلة</span>
+                    </button>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {filteredProducts.length === 0 && !loading && (
-          <div className="p-12 text-center bg-slate-900 border border-slate-800 rounded-3xl space-y-2">
-            <h4 className="font-bold text-white text-base">لا توجد منتجات مطابقة للبحث</h4>
-            <p className="text-xs text-slate-400">جرب البحث بكلمة أخرى أو اختر قسماً مختلفاً</p>
-          </div>
-        )}
-      </section>
-
-      {/* 4. HOUSE SPECIALTIES HIGHLIGHTS (حلويات ومعلبات مصنعة يدوي) */}
-      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-amber-950/20 via-slate-900 to-slate-950 border border-amber-500/20 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-amber-400">قسم الحلويات والأطباق الفاخرة</span>
-            <h3 className="text-xl sm:text-2xl font-black text-white">حلويات وأطباق مصنعة في معمل فينيسيا</h3>
-          </div>
-          <span className="text-2xl">🍯</span>
-        </div>
-
-        <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-          جميع أطباق الأرز باللبن، الزبادي البلدي بالفخار، الزبادي اليوناني عالي البروتين، ومشروبات الزبادو الطبيعية بالفواكه مصنعة يدوياً بأيدي شيفات ألبان فينيسيا من حليب طبيعي 100% بدون مواد حافظة.
-        </p>
-      </section>
-
-      {/* 5. LOCATION & GOOGLE MAPS CARD */}
-      <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-rose-400" />
-              <h3 className="text-lg font-black text-white">فرع ومعمل ألبان فينيسيا الرئيسي</h3>
-            </div>
-            <p className="text-xs text-slate-300">
-              80 شارع المدينة المنورة، الوايلي الكبير شرق، حدائق القبة، محافظة القاهرة
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <a
-              href="https://share.google/UrPJjxJ0JpFBb4OHt"
-              target="_blank"
-              rel="noreferrer"
-              className="py-2.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5"
-            >
-              <span>افتح بالخريطة</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-
-            <a
-              href="tel:01018671000"
-              className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs transition flex items-center gap-1.5"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>اتصل بالفرع</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. WEIGHT & SCALE SELECTION MODAL */}
-      {weightedProduct && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-lg bg-[#0a1220] border-2 border-amber-500/40 rounded-3xl p-6 space-y-5 shadow-2xl text-white">
-            <button
-              onClick={() => setWeightedProduct(null)}
-              className="absolute left-4 top-4 w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            {/* Modal Header */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
-                <Scale className="w-4 h-4" />
-                <span>ميزان فينيسيا الديجيتال — تحديد الوزن والكسور</span>
               </div>
-              <h3 className="text-xl font-black text-white">{weightedProduct.nameAr}</h3>
-              <p className="text-xs text-slate-400 font-mono">
-                سعر الكيلو الكامل: <span className="font-bold text-amber-400">{weightedProduct.pricePerKg || weightedProduct.basePrice} ج.م</span>
-              </p>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 4. WEIGHT SELECTION MODAL */}
+      {weightedProduct && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 space-y-5 text-slate-900 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 font-black">
+                  <Scale className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-950">{weightedProduct.nameAr}</h3>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    سعر الكيلو: {weightedProduct.pricePerKg || weightedProduct.basePrice} ج.م
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setWeightedProduct(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
             </div>
 
-            {/* Fraction Chips */}
+            {/* Quick Fraction Chips */}
             <div className="space-y-2">
-              <label className="text-xs text-slate-300 font-bold block">
-                اختر وزن الكسر المعتاد:
+              <label className="text-xs font-black text-slate-700 block">
+                اختر وزن الصنف السريع (كسور الكيلو):
               </label>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 text-xs">
                 {[
-                  { key: "eighth", label: "ثمن كجم (125 جم)", price: Math.round(((weightedProduct.pricePerKg || weightedProduct.basePrice) * 0.125) * 10) / 10 },
-                  { key: "quarter", label: "ربع كجم (250 جم)", price: Math.round(((weightedProduct.pricePerKg || weightedProduct.basePrice) * 0.25) * 10) / 10 },
-                  { key: "half", label: "نصف كجم (500 جم)", price: Math.round(((weightedProduct.pricePerKg || weightedProduct.basePrice) * 0.5) * 10) / 10 },
-                  { key: "kilo", label: "1 كجم كامل (1000 جم)", price: weightedProduct.pricePerKg || weightedProduct.basePrice },
-                ].map((f) => (
+                  {
+                    key: "eighth",
+                    label: "ثمن كيلو (⅛ كجم)",
+                    grams: "125 جم",
+                    calc: ((weightedProduct.pricePerKg || weightedProduct.basePrice) * 0.125).toFixed(1),
+                  },
+                  {
+                    key: "quarter",
+                    label: "ربع كيلو (¼ كجم)",
+                    grams: "250 جم",
+                    calc: ((weightedProduct.pricePerKg || weightedProduct.basePrice) * 0.25).toFixed(1),
+                  },
+                  {
+                    key: "half",
+                    label: "نصف كيلو (½ كجم)",
+                    grams: "500 جم",
+                    calc: ((weightedProduct.pricePerKg || weightedProduct.basePrice) * 0.5).toFixed(1),
+                  },
+                  {
+                    key: "kilo",
+                    label: "كيلو كامل (1 كجم)",
+                    grams: "1000 جم",
+                    calc: (weightedProduct.pricePerKg || weightedProduct.basePrice).toFixed(1),
+                  },
+                ].map((item) => (
                   <button
-                    key={f.key}
+                    key={item.key}
                     type="button"
-                    onClick={() => setSelectedFraction(f.key as any)}
-                    className={`p-3 rounded-2xl border text-right transition flex items-center justify-between ${
-                      selectedFraction === f.key
-                        ? "bg-amber-500/20 border-amber-500 text-white font-black"
-                        : "bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700"
+                    onClick={() => setSelectedFraction(item.key as any)}
+                    className={`p-3 rounded-2xl text-right transition flex flex-col justify-between border ${
+                      selectedFraction === item.key
+                        ? "bg-slate-900 text-white border-slate-900 shadow-md"
+                        : "bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200"
                     }`}
                   >
-                    <div>
-                      <div className="text-xs">{f.label}</div>
-                      <div className="text-xs font-mono font-bold text-amber-400">{f.price} ج.م</div>
+                    <span className="font-bold text-xs">{item.label}</span>
+                    <div className="flex justify-between items-baseline mt-2">
+                      <span className="font-mono text-[11px] opacity-75">{item.grams}</span>
+                      <span
+                        className={`font-mono font-black text-sm ${
+                          selectedFraction === item.key ? "text-amber-400" : "text-amber-600"
+                        }`}
+                      >
+                        {item.calc} ج.م
+                      </span>
                     </div>
-                    {selectedFraction === f.key && <Check className="w-4 h-4 text-amber-400" />}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Custom By Amount or Custom Grams */}
-            <div className="space-y-3 pt-2 border-t border-slate-800">
-              <label className="text-xs text-slate-300 font-bold block">
-                أو اطلب بقيمة نقدية محددة:
-              </label>
-
-              <div className="flex items-center gap-2">
+            {/* Buy by Fixed Cash Amount (بـ 30 جنيه جبنة) */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-slate-700 block">
+                  أو اشتري بمبلغ نقدي محدد (مثلاً: بـ 30 جنيه):
+                </label>
                 <button
                   type="button"
                   onClick={() => setSelectedFraction("amount")}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition ${
-                    selectedFraction === "amount"
-                      ? "bg-amber-500 text-slate-950 font-black"
-                      : "bg-slate-800 text-slate-300"
+                  className={`text-[11px] font-bold ${
+                    selectedFraction === "amount" ? "text-amber-600 underline font-black" : "text-slate-400"
                   }`}
                 >
-                  بمبلغ مالي
+                  تفعيل
                 </button>
-                <div className="flex-1 relative">
-                  <input
-                    type="number"
-                    min="10"
-                    value={customAmountEgp}
-                    onChange={(e) => {
-                      setCustomAmountEgp(e.target.value);
-                      setSelectedFraction("amount");
-                    }}
-                    placeholder="اكتب المبلغ (مثلاً 30 ج)"
-                    className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                  />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-bold">
-                    ج.م
-                  </span>
-                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={5}
+                  step={5}
+                  value={customAmountEgp}
+                  onFocus={() => setSelectedFraction("amount")}
+                  onChange={(e) => {
+                    setSelectedFraction("amount");
+                    setCustomAmountEgp(e.target.value);
+                  }}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-slate-900"
+                  placeholder="30"
+                />
+                <span className="text-xs text-slate-500 font-bold">جنيه مصري</span>
               </div>
 
               {selectedFraction === "amount" && (
-                <div className="text-[11px] text-cyan-300 font-mono bg-cyan-950/40 p-2 rounded-xl border border-cyan-500/20">
-                  الوزن التقديري المحسوب:{" "}
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 flex justify-between font-mono">
+                  <span>الوزن المقدر بالجرام:</span>
                   <span className="font-bold">
-                    {Math.round(((Number(customAmountEgp) || 30) / (weightedProduct.pricePerKg || weightedProduct.basePrice)) * 1000)} جم
+                    {Math.round(
+                      (Number(customAmountEgp) / (weightedProduct.pricePerKg || weightedProduct.basePrice)) * 1000
+                    )}{" "}
+                    جرام تقريباً
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Modal Actions */}
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => setWeightedProduct(null)}
-                className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
-              >
-                إلغاء
-              </button>
-
+            {/* Confirm Button */}
+            <div className="pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={handleAddWeightedToCart}
-                className="flex-1 py-3 px-5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+                className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
               >
-                <ShoppingBag className="w-4 h-4" />
-                <span>إضافة الوزن للسلة</span>
+                <Plus className="w-4 h-4" />
+                <span>إضافة هذا الوزن للسلة</span>
               </button>
             </div>
           </div>
