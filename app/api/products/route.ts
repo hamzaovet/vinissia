@@ -160,6 +160,46 @@ export async function PUT(req: Request) {
   }
 }
 
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, adjustQty, setStockQty } = body;
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: "معرف الصنف مطلوب" }, { status: 400 });
+    }
+
+    const current = await prisma.product.findUnique({ where: { id } });
+    if (!current) {
+      return NextResponse.json({ success: false, error: "الصنف غير موجود" }, { status: 404 });
+    }
+
+    let newStock = current.stockQty;
+    if (adjustQty !== undefined) {
+      newStock = Math.max(0, Number((current.stockQty + Number(adjustQty)).toFixed(3)));
+    } else if (setStockQty !== undefined) {
+      newStock = Math.max(0, Number(Number(setStockQty).toFixed(3)));
+    }
+
+    const updated = await prisma.product.update({
+      where: { id },
+      data: {
+        stockQty: newStock,
+        inStock: newStock > 0,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      product: updated,
+      message: `تم تحديث رصيد المخزن بنجاح إلى ${newStock} ${updated.unit}`,
+    });
+  } catch (error: any) {
+    console.error("Products PATCH Error:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);

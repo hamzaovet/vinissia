@@ -115,6 +115,35 @@ export async function POST(req: Request) {
       },
     });
 
+    // Deduct stock for ordered items
+    try {
+      const orderItems = typeof items === "string" ? JSON.parse(items) : items;
+      if (Array.isArray(orderItems)) {
+        for (const item of orderItems) {
+          if (item.productId) {
+            const deductionQty =
+              item.isWeighted && item.weightGrams
+                ? Number((item.weightGrams / 1000).toFixed(3))
+                : Number(item.qty || 1);
+
+            const prod = await prisma.product.findUnique({ where: { id: item.productId } });
+            if (prod) {
+              const remainingStock = Math.max(0, Number((prod.stockQty - deductionQty).toFixed(3)));
+              await prisma.product.update({
+                where: { id: item.productId },
+                data: {
+                  stockQty: remainingStock,
+                  inStock: remainingStock > 0,
+                },
+              });
+            }
+          }
+        }
+      }
+    } catch (stockErr) {
+      console.error("Stock deduction warning:", stockErr);
+    }
+
     // Record Treasury Transaction if POS cash sale
     if (orderType === "pos") {
       await prisma.treasuryTransaction.create({

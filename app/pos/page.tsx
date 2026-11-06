@@ -22,6 +22,8 @@ import {
   X,
   Check,
   Clock,
+  Lock,
+  LogOut,
 } from "lucide-react";
 
 interface Product {
@@ -88,13 +90,58 @@ export default function PosPage() {
 
   const barcodeRef = useRef<HTMLInputElement>(null);
 
+  const [isLocked, setIsLocked] = useState(true);
+  const [unlockPin, setUnlockPin] = useState("");
+  const [unlockError, setUnlockError] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+
   // Check Staff session
   useEffect(() => {
     try {
       const saved = localStorage.getItem("vinissia_staff_user");
-      if (saved) setStaff(JSON.parse(saved));
-    } catch {}
+      if (saved) {
+        const u = JSON.parse(saved);
+        if (u.role === "owner" || u.role === "manager" || u.role === "cashier") {
+          setStaff(u);
+          setIsLocked(false);
+          return;
+        }
+      }
+      setIsLocked(true);
+    } catch {
+      setIsLocked(true);
+    }
   }, []);
+
+  const handleQuickUnlock = async () => {
+    if (!unlockPin) return;
+    try {
+      setUnlocking(true);
+      setUnlockError("");
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quickPin: unlockPin }),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        if (data.user.role === "delivery") {
+          setUnlockError("حساب كابتن التوصيل غير مصرح له بفتح كاشير الصالة");
+          return;
+        }
+        localStorage.setItem("vinissia_staff_user", JSON.stringify(data.user));
+        setStaff(data.user);
+        setIsLocked(false);
+        setUnlockPin("");
+      } else {
+        setUnlockError(data.error || "كود PIN غير صحيح");
+      }
+    } catch (err) {
+      setUnlockError("تعذر الاتصال بالسيرفر");
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   // Load Data
   useEffect(() => {
@@ -321,6 +368,105 @@ export default function PosPage() {
     }
   };
 
+  if (isLocked) {
+    return (
+      <div className="min-h-screen bg-[#070c17] text-white flex items-center justify-center p-4 font-sans" dir="rtl">
+        <div className="w-full max-w-sm bg-slate-900/95 border-2 border-amber-500/30 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl backdrop-blur-xl">
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-black text-2xl mx-auto shadow-lg shadow-amber-500/20">
+              🔒
+            </div>
+            <h2 className="text-xl font-black text-white">نقطة بيع كاشير صالة ألبان فينيسيا</h2>
+            <p className="text-xs text-slate-400">
+              شاشة الكاشير محمية ومقفولة. أدخل كود الـ PIN لفتح درج ونظام البيع
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="relative">
+              <input
+                type="password"
+                maxLength={6}
+                readOnly
+                value={unlockPin}
+                placeholder="••••••"
+                className="w-full py-3.5 px-4 rounded-2xl bg-slate-950 border-2 border-slate-700 text-center font-mono text-2xl font-black text-amber-400 tracking-widest"
+              />
+            </div>
+
+            {unlockError && (
+              <p className="text-xs text-rose-400 text-center font-bold">{unlockError}</p>
+            )}
+
+            {/* Keypad */}
+            <div className="grid grid-cols-3 gap-2">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => {
+                    if (unlockPin.length < 6) {
+                      setUnlockPin((prev) => prev + num);
+                      setUnlockError("");
+                    }
+                  }}
+                  className="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-white font-mono font-black text-lg transition shadow-sm"
+                >
+                  {num}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setUnlockPin("")}
+                className="py-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold text-xs transition"
+              >
+                مسح C
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (unlockPin.length < 6) {
+                    setUnlockPin((prev) => prev + "0");
+                    setUnlockError("");
+                  }
+                }}
+                className="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-white font-mono font-black text-lg transition shadow-sm"
+              >
+                0
+              </button>
+              <button
+                type="button"
+                onClick={() => setUnlockPin((prev) => prev.slice(0, -1))}
+                className="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"
+              >
+                ⌫
+              </button>
+            </div>
+
+            <button
+              type="button"
+              disabled={unlocking || unlockPin.length === 0}
+              onClick={handleQuickUnlock}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm transition shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>{unlocking ? "جارٍ التحقق..." : "فتح درج الكاشير 🔓"}</span>
+            </button>
+          </div>
+
+          <div className="pt-2 text-center border-t border-slate-800 flex justify-between text-xs text-slate-400">
+            <Link href="/" className="hover:text-white transition">
+              المتجر الرئيسي
+            </Link>
+            <Link href="/login?redirect=/pos" className="text-amber-400 font-bold hover:underline">
+              تسجيل بالاسم والباسورد ⬅
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#060a12] text-white flex flex-col font-sans select-none">
       {/* POS Top Bar */}
@@ -335,7 +481,7 @@ export default function PosPage() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {staff && (
             <div className="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
               <User className="w-3.5 h-3.5 text-amber-400" />
@@ -343,13 +489,36 @@ export default function PosPage() {
             </div>
           )}
 
-          <Link
-            href="/admin"
-            className="py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-amber-300 transition flex items-center gap-1"
+          <button
+            onClick={() => setIsLocked(true)}
+            className="py-1.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-bold text-amber-300 transition flex items-center gap-1"
+            title="قفل الكاشير فورياً لحماية الدرج"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-            <span>لوحة الإدارة</span>
-          </Link>
+            <Lock className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">قفل الشاشة</span>
+          </button>
+
+          {(staff?.role === "owner" || staff?.role === "manager") && (
+            <Link
+              href="/admin"
+              className="py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 transition flex items-center gap-1"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span>لوحة الإدارة</span>
+            </Link>
+          )}
+
+          <button
+            onClick={() => {
+              localStorage.removeItem("vinissia_staff_user");
+              setStaff(null);
+              setIsLocked(true);
+            }}
+            className="py-1.5 px-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-bold text-rose-300 transition flex items-center gap-1"
+            title="تسجيل خروج"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
         </div>
       </header>
 

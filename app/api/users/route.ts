@@ -64,7 +64,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { id, isActive, name, password, pin, role, permissions } = body;
+    const { id, isActive, name, username, phone, password, pin, role, permissions } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: "معرف المستخدم مطلوب" }, { status: 400 });
@@ -83,9 +83,11 @@ export async function PATCH(req: Request) {
     const updateData: any = {};
     if (typeof isActive === "boolean") updateData.isActive = isActive;
     if (name) updateData.name = name.trim();
-    if (password) updateData.passwordHash = password;
-    if (pin) updateData.pin = pin.trim();
-    if (role) updateData.role = role;
+    if (username && user.username !== "maestro") updateData.username = username.trim().toLowerCase();
+    if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
+    if (password && password.trim()) updateData.passwordHash = password.trim();
+    if (pin && pin.trim()) updateData.pin = pin.trim();
+    if (role && user.username !== "maestro") updateData.role = role;
     if (permissions) updateData.permissions = typeof permissions === "string" ? permissions : JSON.stringify(permissions);
 
     const updated = await prisma.user.update({

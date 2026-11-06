@@ -22,13 +22,21 @@ export default function Navbar({ settings }: { settings?: any }) {
   const pathname = usePathname();
   const { itemCount, setIsOpen } = useCart();
   const [showQrModal, setShowQrModal] = useState(false);
+  const [staffUser, setStaffUser] = useState<any>(null);
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem("vinissia_staff_user");
+      if (saved) setStaffUser(JSON.parse(saved));
+    } catch {}
+  }, []);
 
   const isManagementRoute = pathname.startsWith("/admin") || pathname.startsWith("/pos");
 
   const hotline = settings?.hotline || "01018671000";
   const storeName = settings?.storeName || "ألبان فينيسيا";
 
-  // If on admin or POS, show isolated top management bar or null
+  // If on admin or POS, do not show consumer navbar
   if (isManagementRoute) {
     return null;
   }
@@ -76,25 +84,36 @@ export default function Navbar({ settings }: { settings?: any }) {
               <span className="hidden md:inline">كارت الـ 2 QR</span>
             </button>
 
-            {/* Direct POS Link */}
-            <Link
-              href="/pos"
-              className="py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-400 text-cyan-300 text-xs font-bold transition flex items-center gap-1.5 hidden lg:flex"
-              title="شاشة كاشير الصالة السريعة"
-            >
-              <Calculator className="w-4 h-4" />
-              <span>كاشير صالة (POS)</span>
-            </Link>
-
-            {/* Admin / Maestro Portal Link */}
-            <Link
-              href="/admin"
-              className="py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-500 text-slate-300 text-xs font-bold transition flex items-center gap-1.5"
-              title="بوابة إدارة المالك والمدير"
-            >
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <span className="hidden sm:inline">الإدارة (المايسترو)</span>
-            </Link>
+            {/* Authenticated Staff Shortcuts (Only visible if staff is logged in) */}
+            {staffUser ? (
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/admin"
+                  className="py-1.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold transition flex items-center gap-1.5"
+                  title="لوحة الإدارة"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span className="hidden sm:inline">لوحة التحكم</span>
+                </Link>
+                <Link
+                  href="/pos"
+                  className="py-1.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition flex items-center gap-1.5"
+                  title="شاشة كاشير الصالة"
+                >
+                  <Calculator className="w-4 h-4" />
+                  <span className="hidden sm:inline">كاشير الصالة</span>
+                </Link>
+              </div>
+            ) : (
+              /* Discrete Staff Entrance Icon */
+              <Link
+                href="/login"
+                className="p-2 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition"
+                title="بوابة دخول طاقم فينيسيا والإدارة"
+              >
+                <ShieldCheck className="w-4 h-4" />
+              </Link>
+            )}
 
             {/* Cart Trigger Button */}
             <button

