@@ -177,8 +177,14 @@ export default function HomePage() {
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            لبن جاموسي طازج كامل الدسم، حلويات مصنعة يدوياً بالمعمل يومياً (رز بلبن، مهلبية، أم علي، وقشطوطة فاخرة)، لحوم مصنعة ومبردات، وسمن وزبدة وقشطة مزارعنا الطبيعية 100%.
+            لبن جاموسي طازج كامل الدسم، أجبان فاخرة ومعتقة (رومي، كيري، شيدر، موتزريلا، براميلي)، حلويات مصنعة يدوياً بالمعمل يومياً (رز بلبن، مهلبية، أم علي، وقشطوطة فاخرة)، لحوم مصنعة ومبردات، وسمن وزبدة وقشطة مزارعنا الطبيعية 100%.
           </p>
+
+          {/* Fresh Milk Boiling Note */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-50/90 border border-amber-300 text-amber-900 text-xs font-bold shadow-sm">
+            <span>🥛</span>
+            <span>تنبيه خير المزرعة: الرجاء غلي اللبن فوراً عند الاستلام!</span>
+          </div>
 
           {/* Branches Badges */}
           <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
