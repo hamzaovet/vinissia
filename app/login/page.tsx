@@ -10,7 +10,6 @@ import {
   KeyRound,
   ArrowRight,
   AlertCircle,
-  Sparkles,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -49,6 +48,8 @@ export default function LoginPage() {
 
         if (data.user.role === "cashier") {
           router.push("/pos");
+        } else if (data.user.role === "delivery") {
+          router.push("/driver");
         } else {
           router.push("/admin");
         }
@@ -171,65 +172,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Quick Credential Autofill Helper for Authorized Staff */}
-          <div className="pt-3 border-t border-slate-100 space-y-2">
-            <span className="text-[11px] font-bold text-slate-500 block text-center">
-              حسابات الدخول المعتمدة (انقر لتعبئة البيانات تلقائياً):
-            </span>
-            <div className="grid grid-cols-2 gap-2 text-[10px]">
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername("maestro");
-                  setPassword("123456789");
-                  setPin("157230");
-                }}
-                className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 font-bold border border-amber-200 transition text-right"
-              >
-                👑 <span className="font-black">المالك (المايسترو)</span>
-                <span className="block text-[9px] text-amber-800 font-mono mt-0.5">maestro / 157230</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername("manager");
-                  setPassword("123456789");
-                  setPin("112233");
-                }}
-                className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-950 font-bold border border-blue-200 transition text-right"
-              >
-                👔 <span className="font-black">المدير العام (مدير التشغيل)</span>
-                <span className="block text-[9px] text-blue-800 font-mono mt-0.5">manager / 112233</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername("cashier_heliopolis");
-                  setPassword("123456789");
-                  setPin("223344");
-                }}
-                className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-900 font-bold border border-slate-200 transition text-right"
-              >
-                🏪 <span className="font-black">كاشير مصر الجديدة</span>
-                <span className="block text-[9px] text-slate-600 font-mono mt-0.5">cashier_heliopolis / 223344</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername("cashier_qobba");
-                  setPassword("123456789");
-                  setPin("334455");
-                }}
-                className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-900 font-bold border border-slate-200 transition text-right"
-              >
-                🏪 <span className="font-black">كاشير حدائق القبة</span>
-                <span className="block text-[9px] text-slate-600 font-mono mt-0.5">cashier_qobba / 334455</span>
-              </button>
-            </div>
-          </div>
+          {/* Quick Credential Autofill Helper for Authorized Staff - REMOVED FOR SECURITY */}
         </div>
 
         {/* Back to Home */}

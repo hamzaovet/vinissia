@@ -16,7 +16,10 @@ export async function GET() {
           "Content-Type": "application/vnd.android.package-archive",
           "Content-Disposition": 'attachment; filename="vinissia.apk"',
           "Content-Length": fileBuffer.length.toString(),
-          "Cache-Control": "public, max-age=3600, immutable",
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          "Pragma": "no-cache",
+          "X-APK-Version": "1.0.0",
+          "X-APK-Size": fileBuffer.length.toString(),
         },
       });
     }

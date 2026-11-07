@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -214,8 +214,7 @@ export default function AdminPage() {
       }
       const parsed = JSON.parse(saved);
       if (parsed.role === "delivery") {
-        alert("حساب الدليفري غير مصرح له بدخول لوحة الإدارة العامة");
-        router.push("/");
+        router.push("/driver");
         return;
       }
       setCurrentUser(parsed);
@@ -3439,3 +3438,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+
