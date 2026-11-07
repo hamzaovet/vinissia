@@ -3,94 +3,122 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Phone, MessageCircle, MapPin, Clock, Heart, ExternalLink, ShieldCheck } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Clock, ShieldCheck, Store } from "lucide-react";
 
 export default function Footer({ settings }: { settings?: any }) {
   const pathname = usePathname();
   if (pathname.startsWith("/admin") || pathname.startsWith("/pos")) return null;
 
   const storeName = settings?.storeName || "ألبان فينيسيا";
-  const address = settings?.address || "80 المدينة المنورة، الوايلي الكبير شرق، حدائق القبة، محافظة القاهرة";
-  const hotline = settings?.hotline || "01018671000";
-  const phone = settings?.phone || "0224382540";
-  const mapsUrl = settings?.googleMapsUrl || "https://share.google/UrPJjxJ0JpFBb4OHt";
 
   return (
-    <footer className="bg-[#050912] border-t border-slate-800 text-slate-400 text-xs py-10 mt-16 no-print">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <footer className="bg-white border-t border-slate-200/90 text-slate-600 text-xs py-12 mt-16 no-print shadow-sm" dir="rtl">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Col 1: Brand Info */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5">
-              <span className="text-3xl">🥛</span>
-              <h3 className="text-xl font-black text-white">{storeName}</h3>
+          {/* Col 1: Brand Info & Real Logo */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 rounded-2xl bg-white border border-slate-200 shadow-sm ring-2 ring-amber-400/30">
+                <img
+                  src="/logo.png"
+                  alt="ألبان فينيسيا — مش بس لبن وزبادي"
+                  className="h-12 w-auto object-contain"
+                />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-950">{storeName}</h3>
+                <span className="text-[11px] font-black text-rose-600">مش بس لبن وزبادي</span>
+              </div>
             </div>
-            <p className="text-slate-400 text-xs leading-relaxed max-w-sm">
-              معمل ومصنع ألبان بلدي طبيعي متخصص في الألبان الطازجة كاملة الدسم، الأجبان المعتقة، اللحوم المصنعة، وحلويات الألبان الشرقية الفاخرة.
+            <p className="text-slate-500 text-xs leading-relaxed max-w-sm">
+              معمل ومصنع ألبان بلدي طبيعي 100% متخصص في الألبان الطازجة كاملة الدسم، الأجبان الفاخرة والمعتقة، وحلويات الألبان المصنعة يدوياً يومياً بالمعمل.
             </p>
-            <div className="flex items-center gap-2 text-slate-300 font-mono text-xs">
-              <Clock className="w-4 h-4 text-amber-400" />
+            <div className="flex items-center gap-2 text-slate-700 font-mono text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 w-fit">
+              <Clock className="w-4 h-4 text-amber-500" />
               <span>يومياً من 7:00 ص حتى 2:00 بعد منتصف الليل</span>
             </div>
           </div>
 
-          {/* Col 2: Location & Google Maps */}
+          {/* Col 2: Both Official Branches (From Printed Bag) */}
           <div className="space-y-3">
-            <h4 className="font-bold text-white text-sm flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-rose-400" />
-              <span>عنوان المتجر والموقع</span>
+            <h4 className="font-black text-slate-950 text-sm flex items-center gap-2">
+              <Store className="w-4 h-4 text-amber-600" />
+              <span>فروعنا الرسمية (ليس لدينا فروع أخرى)</span>
             </h4>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              {address}
-            </p>
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 font-bold text-xs transition"
-            >
-              <span>فتح الموقع على جوجل مابس</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          </div>
 
-          {/* Col 3: Delivery & Contacts */}
-          <div className="space-y-3">
-            <h4 className="font-bold text-white text-sm flex items-center gap-2">
-              <Phone className="w-4 h-4 text-emerald-400" />
-              <span>هواتف الطلبات والدليفري</span>
-            </h4>
-            <div className="space-y-1.5 font-mono">
-              <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
-                <span>الخط الساخن:</span>
-                <a href={`tel:${hotline}`} className="hover:underline">{hotline}</a>
+            {/* Branch 1 */}
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <span className="font-black text-slate-900 text-xs block">
+                الفرع الأول: مصر الجديدة (جسر السويس)
+              </span>
+              <p className="text-[11px] text-slate-600">
+                17 شارع أحمد خليل متفرع من شارع جسر السويس أمام سنترال مصر الجديدة
+              </p>
+              <div className="text-[11px] font-mono font-bold text-slate-800 flex items-center gap-2 pt-0.5">
+                <Phone className="w-3 h-3 text-emerald-600" />
+                <a href="tel:0226342212" className="hover:underline">ت: 0226342212</a>
               </div>
-              {phone && (
-                <div className="flex items-center gap-2 text-slate-300">
-                  <span>الهاتف الأرضي:</span>
-                  <a href={`tel:${phone}`} className="hover:underline">{phone}</a>
-                </div>
-              )}
             </div>
 
-            <div className="pt-2">
+            {/* Branch 2 */}
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <span className="font-black text-slate-900 text-xs block">
+                الفرع الثاني: حدائق القبة
+              </span>
+              <p className="text-[11px] text-slate-600">
+                101 تقسيم الرقابة الإدارية شارع المدينة المنورة متفرع من ولي العهد
+              </p>
+              <div className="text-[11px] font-mono font-bold text-slate-800 flex items-center gap-2 pt-0.5">
+                <Phone className="w-3 h-3 text-emerald-600" />
+                <a href="tel:0224555203" className="hover:underline">0224555203</a>
+                <span>-</span>
+                <a href="tel:01500905334" className="hover:underline">01500905334</a>
+              </div>
+            </div>
+          </div>
+
+          {/* Col 3: Delivery & Unified WhatsApp */}
+          <div className="space-y-4">
+            <h4 className="font-black text-slate-950 text-sm flex items-center gap-2">
+              <MessageCircle className="w-4 h-4 text-emerald-600" />
+              <span>الواتساب الموحد وخدمة الدليفري</span>
+            </h4>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 space-y-2">
+              <span className="text-xs font-bold text-emerald-950 block">
+                واتساب الطلبات لجميع الفروع:
+              </span>
+              <a
+                href="https://wa.me/201118400150"
+                target="_blank"
+                rel="noreferrer"
+                className="font-mono text-base font-black text-emerald-800 hover:underline block"
+              >
+                01118400150
+              </a>
+              <span className="text-[10px] text-emerald-700 block">
+                توصيل سريع لباب بيتك طازج وساقع 🛵
+              </span>
+            </div>
+
+            <div className="pt-1">
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 text-slate-500 hover:text-amber-400 transition text-[11px]"
+                className="inline-flex items-center gap-2 py-2 px-3 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-950 font-bold text-xs transition border border-slate-200"
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>دخول الطاقم والإدارة (المايسترو)</span>
+                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                <span>دخول الطاقم والإدارة والمايسترو 🔐</span>
               </Link>
             </div>
           </div>
         </div>
 
-        <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 text-[11px]">
+        <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-400 text-[11px]">
           <div>
-            جميع الحقوق محفوظة © {new Date().getFullYear()} {storeName} — حدائق القبة
+            جميع الحقوق محفوظة © {new Date().getFullYear()} {storeName} (Venice) — مش بس لبن وزبادي
           </div>
-          <div className="flex items-center gap-1">
-            <span>تم التطوير بأعلى معايير الجودة التقنية والطبخ الفندقي</span>
+          <div className="flex items-center gap-1 font-bold text-slate-500">
+            <span>ليس لدينا فروع أخرى</span>
           </div>
         </div>
       </div>

@@ -150,10 +150,12 @@ export default function TrackOrderPage() {
             <span>متجر ألبان فينيسيا</span>
           </Link>
 
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white border border-slate-200 shadow-sm">
-            <span className="font-serif font-black text-slate-950 text-sm">فِـيـنِـيـسِـيـا</span>
-            <span className="text-amber-500 text-xs">🥛</span>
-            <span className="text-[10px] text-rose-600 font-bold border-r border-slate-200 pr-1.5">مش بس لبن وزبادي</span>
+          <div className="p-1 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
+            <img
+              src="/logo.png"
+              alt="ألبان فينيسيا"
+              className="h-8 w-auto object-contain"
+            />
           </div>
 
           <span className="text-xs font-mono bg-amber-50 text-amber-900 border border-amber-200 py-1.5 px-3 rounded-full font-bold">

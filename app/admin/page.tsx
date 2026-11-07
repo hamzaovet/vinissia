@@ -50,6 +50,8 @@ import {
   Coins,
   BellRing,
   Send,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 
 const formatUnit = (unit?: string | null) => {
@@ -117,8 +119,10 @@ export default function AdminPage() {
     stockQty: 50,
     minStockQty: 10,
     badge: "طازج اليوم ⭐",
+    image: "",
     description: "",
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Stock Replenishment Modal (توريد بضاعة)
   const [showStockModal, setShowStockModal] = useState(false);
@@ -871,15 +875,13 @@ export default function AdminPage() {
 
       <header className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3 flex flex-wrap items-center justify-between gap-3 no-print sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3">
-          {/* Venice Oval Emblem */}
-          <div className="px-4 py-1.5 rounded-full bg-white border-2 border-slate-900 shadow-md ring-2 ring-amber-400/50 flex items-center gap-2">
-            <span className="text-xl font-black text-slate-950 font-serif">
-              فِـيـنِـيـسِـيـا
-            </span>
-            <span className="text-amber-500 text-sm">💧</span>
-            <span className="text-[10px] font-black text-rose-600 border-r-2 border-slate-200 pr-2">
-              مش بس لبن وزبادي
-            </span>
+          {/* Real Official Venice Logo Image */}
+          <div className="p-1 rounded-2xl bg-white border border-slate-200 shadow-sm ring-2 ring-amber-400/30 flex items-center justify-center">
+            <img
+              src="/logo.png"
+              alt="ألبان فينيسيا"
+              className="h-10 w-auto object-contain"
+            />
           </div>
 
           <div>
@@ -1322,6 +1324,7 @@ export default function AdminPage() {
                       stockQty: 50,
                       minStockQty: 10,
                       badge: "طازج اليوم ⭐",
+                      image: "",
                       description: "",
                     });
                     setShowProductModal(true);
@@ -1396,13 +1399,25 @@ export default function AdminPage() {
                     .map((prod) => {
                       return (
                         <tr key={prod.id} className="hover:bg-slate-50/80 transition">
-                          <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2">
-                            <span>{prod.nameAr}</span>
-                            {prod.badge && (
-                              <span className="text-[10px] bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-full">
-                                {prod.badge}
-                              </span>
-                            )}
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 shadow-inner">
+                                <img
+                                  src={prod.image || "/logo.png"}
+                                  alt={prod.nameAr}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              </div>
+                              <div>
+                                <span className="block leading-tight">{prod.nameAr}</span>
+                                {prod.badge && (
+                                  <span className="inline-block text-[9px] bg-amber-50 text-amber-900 border border-amber-200 px-1.5 py-0.2 rounded-full mt-0.5">
+                                    {prod.badge}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </td>
                           <td className="p-3.5 text-slate-600">{prod.categoryName}</td>
                           <td className="p-3.5">
@@ -1493,6 +1508,7 @@ export default function AdminPage() {
                                     stockQty: prod.stockQty,
                                     minStockQty: prod.minStockQty || 10,
                                     badge: prod.badge || "",
+                                    image: prod.image || "",
                                     description: prod.description || "",
                                   });
                                   setShowProductModal(true);
@@ -2614,6 +2630,82 @@ export default function AdminPage() {
                     placeholder="مثال: صنع فينيسيا 🥛 أو طازج اليوم ⭐"
                     className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900"
                   />
+                </div>
+
+                                {/* Product Image & ImgBB Upload */}
+                <div className="space-y-2 sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <label className="text-slate-800 font-bold block flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-amber-500" />
+                      <span>صورة الصنف (رابط مباشر أو رفع فوري عبر ImgBB) 📸</span>
+                    </label>
+                    {uploadingImage && (
+                      <span className="text-[10px] text-amber-600 font-bold animate-pulse">
+                        جارٍ الرفع إلى ImgBB...
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <div className="w-20 h-20 rounded-xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 shadow-sm">
+                      {prodForm.image ? (
+                        <img src={prodForm.image} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl text-slate-300">🥛</span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 space-y-2 w-full">
+                      <input
+                        type="url"
+                        value={prodForm.image}
+                        onChange={(e) => setProdForm({ ...prodForm, image: e.target.value })}
+                        placeholder="رابط مباشر للصورة (https://...)"
+                        className="w-full py-2 px-3 rounded-xl bg-white border border-slate-200 text-slate-900 font-mono text-[11px]"
+                      />
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <label className="cursor-pointer py-1.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5 shadow-sm">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>رفع صورة من جهازك (ImgBB) 📤</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              try {
+                                setUploadingImage(true);
+                                const fd = new FormData();
+                                fd.append("file", file);
+                                const res = await fetch("/api/upload", { method: "POST", body: fd });
+                                const data = await res.json();
+                                if (data.success && data.url) {
+                                  setProdForm((prev) => ({ ...prev, image: data.url }));
+                                } else {
+                                  alert(data.error || "فشل رفع الصورة");
+                                }
+                              } catch {
+                                alert("حدث خطأ أثناء رفع الصورة");
+                              } finally {
+                                setUploadingImage(false);
+                              }
+                            }}
+                          />
+                        </label>
+                        {prodForm.image && (
+                          <button
+                            type="button"
+                            onClick={() => setProdForm({ ...prodForm, image: "" })}
+                            className="text-slate-400 hover:text-rose-600 text-xs"
+                          >
+                            حذف الصورة ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-1 sm:col-span-2">

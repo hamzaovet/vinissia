@@ -43,6 +43,7 @@ interface Product {
   isHouseMade: boolean;
   inStock: boolean;
   badge?: string | null;
+  image?: string | null;
 }
 
 interface Category {
@@ -690,8 +691,14 @@ ${itemsText}
       {/* POS Top Bar */}
       <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-sm no-print">
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl">🥛</span>
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="p-1 rounded-xl bg-white border border-slate-200 shadow-sm">
+              <img
+                src="/logo.png"
+                alt="ألبان فينيسيا"
+                className="h-8 sm:h-9 w-auto object-contain"
+              />
+            </div>
             <div className="text-right">
               <span className="font-black text-slate-900 text-base block leading-none">ألبان فينيسيا</span>
               <span className="text-[10px] text-amber-700 font-bold block">الكاشير ونقاط البيع</span>
@@ -839,7 +846,7 @@ ${itemsText}
                   }}
                   className="bg-white hover:bg-amber-50/40 border border-slate-200/90 hover:border-amber-400 rounded-2xl p-3 text-right flex flex-col justify-between h-28 transition group shadow-sm"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-[10px]">
                       <span className="text-slate-400 truncate max-w-[100px]">{p.categoryName}</span>
                       {p.isWeighted && (
@@ -849,9 +856,19 @@ ${itemsText}
                         </span>
                       )}
                     </div>
-                    <h4 className="font-bold text-slate-900 text-xs line-clamp-2 group-hover:text-amber-700 transition leading-snug">
-                      {p.nameAr}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0">
+                        <img
+                          src={p.image || "/logo.png"}
+                          alt={p.nameAr}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                      <h4 className="font-bold text-slate-900 text-xs line-clamp-2 group-hover:text-amber-700 transition leading-snug">
+                        {p.nameAr}
+                      </h4>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-1 border-t border-slate-100 font-mono">

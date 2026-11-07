@@ -69,27 +69,15 @@ export default function LoginPage() {
       dir="rtl"
     >
       <div className="w-full max-w-md space-y-6">
-        {/* Brand Oval Emblem (Inspired by Venice Sign) */}
+        {/* Real Brand Logo Emblem */}
         <div className="text-center space-y-3">
           <Link href="/" className="inline-block group transition transform hover:scale-[1.02]">
-            <div className="relative px-8 py-3.5 rounded-full bg-white border-2 border-slate-900 shadow-xl inline-flex flex-col items-center justify-center ring-4 ring-amber-400/40">
-              {/* Arabic Venice Brand */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight font-serif">
-                  فِـيـنِـيـسِـيـا
-                </span>
-                <span className="text-amber-500 text-xl font-bold">💧</span>
-              </div>
-
-              {/* Slogan & Venice Cursive */}
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs font-black text-rose-600">
-                  مش بس لبن وزبادي
-                </span>
-                <span className="text-[11px] font-serif italic text-slate-500 font-semibold">
-                  Venice
-                </span>
-              </div>
+            <div className="p-2 rounded-3xl bg-white border border-slate-200 shadow-xl inline-flex flex-col items-center justify-center ring-4 ring-amber-400/30">
+              <img
+                src="/logo.png"
+                alt="ألبان فينيسيا"
+                className="h-20 sm:h-24 w-auto object-contain"
+              />
             </div>
           </Link>
 
