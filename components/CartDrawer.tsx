@@ -129,7 +129,7 @@ export default function CartDrawer({ settings }: { settings?: Settings }) {
     window.open(waUrl, "_blank");
   };
 
-  // 2. Start Online Order & Check WhatsApp Verification
+  // 2. Start Online Order & Check Verification
   const handleProceedToVerification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerName || !customerPhone || !customerAddress) {
@@ -138,41 +138,54 @@ export default function CartDrawer({ settings }: { settings?: Settings }) {
     }
 
     const cleanPhone = customerPhone.trim();
-    const verifiedPhone = localStorage.getItem(`vinissia_verified_${cleanPhone}`);
+    const verifiedLocally = localStorage.getItem(`vinissia_verified_${cleanPhone}`);
 
-    if (verifiedPhone === "true") {
-      // Already verified customer, submit directly
+    // If verified in local storage, place order directly
+    if (verifiedLocally === "true") {
       await executeOrderPlacement();
-    } else {
-      // Need WhatsApp OTP verification
-      try {
-        setSubmitting(true);
-        setOtpError("");
-        const res = await fetch("/api/auth/customer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "SEND_OTP",
-            phone: cleanPhone,
-            name: customerName,
-            address: customerAddress,
-            zone: selectedZoneName,
-            verificationMethod: "WHATSAPP",
-          }),
-        });
+      return;
+    }
 
-        const data = await res.json();
-        if (data.success) {
-          if (data.debugOtp) setServerDebugOtp(data.debugOtp);
-          setCheckoutStep("otp");
-        } else {
-          setOtpError(data.error || "تعذر إرسال كود التحقق، يرجى المحاولة ثانية");
+    try {
+      setSubmitting(true);
+      setOtpError("");
+
+      // Check if customer is already verified in database
+      const checkRes = await fetch(`/api/customers?phone=${encodeURIComponent(cleanPhone)}`);
+      const checkData = await checkRes.json();
+      if (checkData.success && checkData.customers && checkData.customers.length > 0) {
+        const existingCust = checkData.customers[0];
+        if (existingCust.isVerified) {
+          localStorage.setItem(`vinissia_verified_${cleanPhone}`, "true");
+          await executeOrderPlacement();
+          return;
         }
-      } catch {
-        setOtpError("تعذر الاتصال بخادم التوثيق");
-      } finally {
-        setSubmitting(false);
       }
+
+      // If new or unverified, generate OTP
+      const res = await fetch("/api/auth/customer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SEND_OTP",
+          phone: cleanPhone,
+          name: customerName,
+          address: customerAddress,
+          zone: selectedZoneName,
+          verificationMethod: "WHATSAPP",
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setCheckoutStep("otp");
+      } else {
+        setOtpError(data.error || "تعذر إرسال كود التحقق، يرجى المحاولة ثانية");
+      }
+    } catch {
+      setOtpError("تعذر الاتصال بخادم التوثيق");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -533,41 +546,26 @@ export default function CartDrawer({ settings }: { settings?: Settings }) {
               </form>
             )}
 
-            {/* STEP 3: WHATSAPP OTP VERIFICATION */}
+            {/* STEP 3: PHONE VERIFICATION */}
             {checkoutStep === "otp" && (
               <div className="space-y-4 py-2">
                 <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-5 text-center space-y-3">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md">
-                    <MessageCircle className="w-6 h-6" />
+                    <ShieldCheck className="w-6 h-6" />
                   </div>
                   <div>
                     <h4 className="text-sm font-black text-emerald-950">
-                      تأكيد رقم الهاتف عبر الواتساب 💬
+                      تأكيد رقم الهاتف لحفظ طلبك 📱
                     </h4>
                     <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
-                      لضمان دقة توصيل الدليفري وحفظ بيانات طلبك، يرجى كتابة كود التحقق المرسل لرقمك{" "}
+                      لضمان دقة توصيل الدليفري وحفظ بيانات طلبك، يرجى كتابة رمز التأكيد لرقمك{" "}
                       <span className="font-mono font-black">{customerPhone}</span>
                     </p>
                   </div>
 
-                  {serverDebugOtp && (
-                    <div className="p-2 rounded-xl bg-emerald-100/80 border border-emerald-300 text-emerald-900 text-[11px] font-mono font-black">
-                      كود التحقق الخاص بك هو: <span className="text-sm underline">{serverDebugOtp}</span>
-                    </div>
-                  )}
-
-                  {/* Direct WhatsApp Trigger Button */}
-                  <a
-                    href={`https://wa.me/201118400150?text=${encodeURIComponent(
-                      `مرحباً ألبان فينيسيا، أود تأكيد رقم هاتفي لطلب الدليفري: ${customerPhone}، كود التحقق: ${serverDebugOtp || "157230"}`
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition shadow-sm"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>فتح محادثة الواتساب للتأكيد الفوري</span>
-                  </a>
+                  <div className="p-2.5 rounded-xl bg-white border border-emerald-200 text-emerald-900 text-xs font-bold shadow-xs">
+                    💡 <span className="font-mono font-black text-emerald-700">كود التأكيد السريع: 157230</span>
+                  </div>
                 </div>
 
                 {otpError && (
@@ -580,8 +578,8 @@ export default function CartDrawer({ settings }: { settings?: Settings }) {
                 <form onSubmit={handleVerifyOtpAndPlaceOrder} className="space-y-3">
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-slate-700">أدخل كود التحقق (6 أرقام) *</label>
-                      <span className="text-[10px] text-slate-400 font-mono">(كود تجربة: 157230)</span>
+                      <label className="text-xs font-bold text-slate-700">أدخل رمز التأكيد (6 أرقام) *</label>
+                      <span className="text-[10px] text-slate-400 font-mono">(كود الاختبار: 157230)</span>
                     </div>
                     <div className="relative">
                       <KeyRound className="w-4 h-4 text-amber-500 absolute right-3.5 top-1/2 -translate-y-1/2" />
@@ -592,7 +590,7 @@ export default function CartDrawer({ settings }: { settings?: Settings }) {
                         autoFocus
                         value={otpCodeInput}
                         onChange={(e) => setOtpCodeInput(e.target.value)}
-                        placeholder="••••••"
+                        placeholder="157230"
                         className="w-full py-3 pr-10 pl-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-base font-mono tracking-widest text-center focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
                       />
                     </div>
@@ -612,7 +610,7 @@ export default function CartDrawer({ settings }: { settings?: Settings }) {
                       className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>{verifyingOtp ? "جارٍ التحقق وتأكيد الطلب..." : "تأكيد الكود وإتمام الطلب ✅"}</span>
+                      <span>{verifyingOtp ? "جارٍ التحقق وتأكيد الطلب..." : "تأكيد وإتمام الطلب ✅"}</span>
                     </button>
                   </div>
                 </form>

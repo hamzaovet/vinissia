@@ -57,7 +57,19 @@ export async function POST(req: Request) {
       branchId,
     } = body;
 
-    let activeBranchId = branchId;
+    let activeBranchId: string | null = null;
+    if (branchId) {
+      const foundBranch = await prisma.branch.findFirst({
+        where: {
+          OR: [
+            { id: String(branchId).trim() },
+            { code: String(branchId).trim() },
+            { name: { contains: String(branchId).trim() } },
+          ],
+        },
+      });
+      activeBranchId = foundBranch?.id || null;
+    }
     if (!activeBranchId) {
       const defaultBranch = await prisma.branch.findFirst({ orderBy: { createdAt: "asc" } });
       activeBranchId = defaultBranch?.id || null;

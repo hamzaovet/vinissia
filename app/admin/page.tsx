@@ -92,7 +92,7 @@ export default function AdminPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [couriers, setCouriers] = useState<any[]>([]);
   const [showCourierModal, setShowCourierModal] = useState(false);
-  const [courierForm, setCourierForm] = useState({ name: "", phone: "", vehicleType: "موتوسيكل سريع 🛵" });
+  const [courierForm, setCourierForm] = useState<{ id?: string; name: string; phone: string; vehicleType: string }>({ name: "", phone: "", vehicleType: "موتوسيكل سريع 🛵" });
   const [savingCourier, setSavingCourier] = useState(false);
   const [settings, setSettings] = useState<any>(null);
 
@@ -778,32 +778,61 @@ export default function AdminPage() {
   // Assign Courier to Order
   
   // Handle Add Courier
-  const handleAddCourier = async (e: React.FormEvent) => {
+    // Handle Add or Edit Courier
+  const handleSaveCourier = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!courierForm.name || !courierForm.phone) return;
     try {
       setSavingCourier(true);
+      const isEditing = !!courierForm.id;
       const res = await fetch("/api/couriers", {
-        method: "POST",
+        method: isEditing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(courierForm),
       });
       const data = await res.json();
       if (data.success) {
         setShowCourierModal(false);
-        setCourierForm({ name: "", phone: "", vehicleType: "موتوسيكل سريع 🛵" });
-        // Refresh couriers
+        setCourierForm({ id: undefined, name: "", phone: "", vehicleType: "موتوسيكل سريع 🛵" });
         const cres = await fetch("/api/couriers");
         const cdata = await cres.json();
         if (cdata.success) setCouriers(cdata.couriers || []);
-        alert("✅ تمت إضافة الطيار بنجاح إلى الأسطول");
+        alert(isEditing ? "✅ تم تعديل بيانات الطيار بنجاح" : "✅ تمت إضافة الطيار بنجاح إلى الأسطول");
       } else {
-        alert(data.error || "فشل إضافة الطيار");
+        alert(data.error || "فشل حفظ بيانات الطيار");
       }
     } catch {
       alert("تعذر الاتصال بالخادم");
     } finally {
       setSavingCourier(false);
+    }
+  };
+
+  // Handle Edit Courier
+  const handleEditCourier = (c: any) => {
+    setCourierForm({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      vehicleType: c.vehicleType || "موتوسيكل سريع 🛵",
+    });
+    setShowCourierModal(true);
+  };
+
+  // Handle Delete Courier
+  const handleDeleteCourier = async (id: string, name: string) => {
+    if (!confirm(`هل أنت متأكد من حذف الكابتن "${name}" من أسطول الطيارين؟`)) return;
+    try {
+      const res = await fetch(`/api/couriers?id=${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        setCouriers((prev) => prev.filter((c) => c.id !== id));
+        alert("✅ تم حذف الطيار بنجاح");
+      } else {
+        alert(data.error || "فشل حذف الطيار");
+      }
+    } catch {
+      alert("تعذر الاتصال بالخادم");
     }
   };
 
@@ -1932,7 +1961,7 @@ export default function AdminPage() {
               </div>
 
               <button
-                onClick={() => setShowCourierModal(true)}
+                onClick={() => { setCourierForm({ id: undefined, name: "", phone: "", vehicleType: "موتوسيكل سريع 🛵" }); setShowCourierModal(true); }}
                 className="py-2.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5 shadow-sm self-start sm:self-auto"
               >
                 <Plus className="w-4 h-4" />
@@ -1989,24 +2018,46 @@ export default function AdminPage() {
                     </div>
 
                     {/* Quick Action Buttons */}
-                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-                      <a
-                        href={`https://wa.me/2${c.phone.replace(/[^0-9]/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition flex items-center justify-center gap-1.5 border border-emerald-200"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>واتساب</span>
-                      </a>
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <div className="grid grid-cols-2 gap-2">
+                        <a
+                          href={`https://wa.me/2${c.phone.replace(/[^0-9]/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition flex items-center justify-center gap-1.5 border border-emerald-200"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>واتساب</span>
+                        </a>
 
-                      <a
-                        href={`tel:${c.phone}`}
-                        className="py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-xs transition flex items-center justify-center gap-1.5 border border-slate-200"
-                      >
-                        <Phone className="w-3.5 h-3.5 text-amber-600" />
-                        <span>اتصال</span>
-                      </a>
+                        <a
+                          href={`tel:${c.phone}`}
+                          className="py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-xs transition flex items-center justify-center gap-1.5 border border-slate-200"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-amber-600" />
+                          <span>اتصال</span>
+                        </a>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEditCourier(c)}
+                          className="py-1.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs transition flex items-center justify-center gap-1.5 border border-amber-200 shadow-xs"
+                        >
+                          <Edit className="w-3.5 h-3.5 text-amber-600" />
+                          <span>تعديل ✏️</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCourier(c.id, c.name)}
+                          className="py-1.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition flex items-center justify-center gap-1.5 border border-rose-200 shadow-xs"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          <span>حذف 🗑️</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -2471,7 +2522,7 @@ export default function AdminPage() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
                 <Truck className="w-5 h-5 text-amber-600" />
-                <span>إضافة كابتن / طيار دليفري جديد</span>
+                <span>{courierForm.id ? "تعديل بيانات الطيار" : "إضافة كابتن / طيار دليفري جديد"}</span>
               </h3>
               <button
                 onClick={() => setShowCourierModal(false)}
@@ -2481,7 +2532,7 @@ export default function AdminPage() {
               </button>
             </div>
 
-            <form onSubmit={handleAddCourier} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveCourier} className="space-y-4 text-xs">
               <div className="space-y-1">
                 <label className="text-slate-700 font-bold block">اسم الكابتن / الطيار *</label>
                 <input
@@ -2533,7 +2584,7 @@ export default function AdminPage() {
                   className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <Check className="w-4 h-4" />
-                  <span>{savingCourier ? "جارٍ الحفظ..." : "حفظ وإضافة الطيار"}</span>
+                  <span>{savingCourier ? "جارٍ الحفظ..." : courierForm.id ? "حفظ التعديلات ✅" : "حفظ وإضافة الطيار"}</span>
                 </button>
               </div>
             </form>
