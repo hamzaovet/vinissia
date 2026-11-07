@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ألبان فينيسيا</string>
+    <string name="title_activity_main">ألبان فينيسيا</string>
+    <string name="package_name">com.vinissia.app</string>
+    <string name="custom_url_scheme">com.vinissia.app</string>
+</resources>

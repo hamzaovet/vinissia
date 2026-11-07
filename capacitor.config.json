@@ -1,0 +1,13 @@
+{
+  "appId": "com.vinissia.app",
+  "appName": "ألبان فينيسيا",
+  "webDir": "public",
+  "server": {
+    "url": "https://vinissia.vercel.app",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#080e1a"
+  }
+}
