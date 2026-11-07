@@ -25,7 +25,7 @@ export async function GET(req: Request) {
       where,
       include: {
         courier: { select: { id: true, name: true, phone: true } },
-        branch: { select: { id: true, name: true, code: true } },
+        branch: { select: { id: true, name: true, code: true, phone: true, address: true, whatsapp: true } },
       },
       orderBy: { createdAt: "desc" },
     });

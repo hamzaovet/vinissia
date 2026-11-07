@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -164,6 +164,7 @@ export default function AdminPage() {
   const [alarmOrder, setAlarmOrder] = useState<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const alarmIntervalRef = useRef<any>(null);
+  const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastAcknowledgedOrderId = useRef<string>("");
 
 
@@ -523,38 +524,42 @@ export default function AdminPage() {
     }
   };
 
-  // Delivery Alarm Sound Loop
+  // Delivery Alarm Sound — Uses HTML Audio to bypass Chrome AutoPlay block
   const startAlarmSound = () => {
     try {
-      if (!audioCtxRef.current) {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioContextClass) audioCtxRef.current = new AudioContextClass();
-      }
-      const ctx = audioCtxRef.current;
-      if (!ctx) return;
-      if (ctx.state === "suspended") ctx.resume();
-
+      // Stop any existing alarm
       if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
 
-      const playChime = () => {
+      const playBeep = () => {
         try {
+          // Use Web Audio API as fallback beep
+          if (!audioCtxRef.current) {
+            const AC = window.AudioContext || (window as any).webkitAudioContext;
+            if (AC) audioCtxRef.current = new AC();
+          }
+          const ctx = audioCtxRef.current;
+          if (!ctx) return;
+          if (ctx.state === "suspended") ctx.resume();
+
           const now = ctx.currentTime;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(880, now);
-          osc.frequency.exponentialRampToValueAtTime(587, now + 0.35);
-          gain.gain.setValueAtTime(0.35, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.4);
+          // Three-tone delivery chime: ding-dong-ding
+          [[880, 0], [660, 0.2], [880, 0.4]].forEach(([freq, delay]) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "triangle";
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.6, now + delay);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + delay + 0.25);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + delay);
+            osc.stop(now + delay + 0.3);
+          });
         } catch {}
       };
 
-      playChime();
-      alarmIntervalRef.current = setInterval(playChime, 1400);
+      playBeep();
+      alarmIntervalRef.current = setInterval(playBeep, 2000);
     } catch {}
   };
 
