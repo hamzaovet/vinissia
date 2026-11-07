@@ -120,8 +120,9 @@ export default function DriverPage() {
   };
 
   // Open Google Maps directions from driver location to customer address
-  const openDirections = (customerAddress: string) => {
-    const dest = encodeURIComponent(customerAddress + ", القاهرة، مصر");
+  const openDirections = (address: string) => {
+    if (!address) return;
+    const dest = encodeURIComponent(address + ", القاهرة، مصر");
     if (myLocation) {
       window.open(
         `https://www.google.com/maps/dir/${myLocation.lat},${myLocation.lng}/${dest}`,
@@ -348,12 +349,12 @@ export default function DriverPage() {
                     </div>
 
                     {/* ADDRESS — most important for driver! */}
-                    {order.customerAddress ? (
+                    {(order.deliveryAddress || order.customerAddress) ? (
                       <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
                         <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-black text-slate-900 leading-snug">
-                            {order.customerAddress}
+                            {order.deliveryAddress || order.customerAddress}
                           </p>
                           {order.deliveryZone && (
                             <p className="text-[10px] text-amber-700 font-bold mt-0.5">
@@ -362,7 +363,7 @@ export default function DriverPage() {
                           )}
                         </div>
                         <button
-                          onClick={() => openDirections(order.customerAddress)}
+                          onClick={() => openDirections(order.deliveryAddress || order.customerAddress)}
                           className="shrink-0 py-1 px-2 rounded-lg bg-blue-600 text-white text-[10px] font-bold hover:bg-blue-500 transition flex items-center gap-1"
                         >
                           <Navigation className="w-3 h-3" />خرائط
@@ -371,7 +372,7 @@ export default function DriverPage() {
                     ) : (
                       <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-xl p-2.5">
                         <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                        <p className="text-xs text-rose-700 font-bold">لم يحدد العميل العنوان</p>
+                        <p className="text-xs text-rose-700 font-bold">⚠️ لم يحدد العميل العنوان — اتصل به مباشرة</p>
                       </div>
                     )}
 
@@ -452,27 +453,41 @@ export default function DriverPage() {
                   </div>
 
                   {/* ORDER ITEMS (expandable) */}
-                  {isExpanded && order.items && order.items.length > 0 && (
-                    <div className="border-t border-slate-100 bg-slate-50 p-4 space-y-1.5">
-                      <p className="text-xs font-black text-slate-700 flex items-center gap-1.5 mb-2">
-                        <Package className="w-3.5 h-3.5" />محتويات الطلب
-                      </p>
-                      {order.items.map((item: any, i: number) => (
-                        <div key={i} className="flex justify-between items-center text-xs bg-white p-2 rounded-xl border border-slate-100">
-                          <span className="font-bold text-slate-800">
-                            {item.quantity}× {item.productName || item.nameAr}
-                          </span>
-                          <span className="font-mono text-slate-500">
-                            {item.totalPrice || (item.price * item.quantity)} ج.م
-                          </span>
+                  {isExpanded && (() => {
+                    // items may be a JSON string from DB — parse safely
+                    let parsedItems: any[] = [];
+                    try {
+                      if (Array.isArray(order.items)) {
+                        parsedItems = order.items;
+                      } else if (typeof order.items === "string" && order.items) {
+                        parsedItems = JSON.parse(order.items);
+                      }
+                    } catch {
+                      parsedItems = [];
+                    }
+                    if (parsedItems.length === 0) return null;
+                    return (
+                      <div className="border-t border-slate-100 bg-slate-50 p-4 space-y-1.5">
+                        <p className="text-xs font-black text-slate-700 flex items-center gap-1.5 mb-2">
+                          <Package className="w-3.5 h-3.5" />محتويات الطلب
+                        </p>
+                        {parsedItems.map((item: any, i: number) => (
+                          <div key={i} className="flex justify-between items-center text-xs bg-white p-2 rounded-xl border border-slate-100">
+                            <span className="font-bold text-slate-800">
+                              {item.quantity || item.qty || 1}× {item.productName || item.nameAr || item.name || "صنف"}
+                            </span>
+                            <span className="font-mono text-slate-500">
+                              {item.totalPrice ?? ((Number(item.price) || 0) * (Number(item.quantity || item.qty) || 1))} ج.م
+                            </span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between font-black text-sm pt-2 border-t border-slate-200">
+                          <span>الإجمالي</span>
+                          <span className="text-emerald-700">{order.totalAmount} ج.م</span>
                         </div>
-                      ))}
-                      <div className="flex justify-between font-black text-sm pt-2 border-t border-slate-200">
-                        <span>الإجمالي</span>
-                        <span className="text-emerald-700">{order.totalAmount} ج.م</span>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               );
             })}
