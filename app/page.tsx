@@ -155,24 +155,15 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 font-sans" dir="rtl">
-      {/* 1. HERO BANNER (Fresh Dairy Cream & Official Venice Emblem) */}
+      {/* 1. HERO BANNER (Fresh Dairy Cream & Expressive Visual) */}
       <section className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/90 p-6 sm:p-10 shadow-xl shadow-slate-200/40">
         <div className="relative z-10 max-w-2xl space-y-4">
-          {/* Official Venice Logo Badge */}
-          <div className="inline-flex items-center gap-3 p-1.5 pr-4 rounded-3xl bg-white border border-slate-200 shadow-md ring-4 ring-amber-400/30">
-            <img
-              src="/logo.png"
-              alt="ألبان فينيسيا — مش بس لبن وزبادي"
-              className="h-14 sm:h-16 w-auto object-contain"
-            />
-            <div className="border-r border-slate-200 pr-3">
-              <span className="text-base sm:text-lg font-black text-slate-950 block leading-tight font-serif">
-                ألبان فِـيـنِـيـسِـيـا (Venice)
-              </span>
-              <span className="text-xs font-black text-rose-600">
-                مش بس لبن وزبادي
-              </span>
-            </div>
+          {/* Subtle Tagline Badge (Logo is only in top Navbar as requested) */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-50 via-sky-50 to-amber-50 border border-amber-300 text-slate-900 text-xs font-bold shadow-sm">
+            <span className="text-amber-500 font-bold">✨</span>
+            <span className="font-black text-slate-950">معمل ألبان فينيسيا الطبيعي</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-rose-600 font-black">مش بس لبن وزبادي</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black text-slate-950 leading-tight">
@@ -234,18 +225,24 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Floating Dairy Art with Real Logo */}
+        {/* Expressive Food & Dairy Composition Visual on Left */}
         <div className="absolute left-8 top-1/2 -translate-y-1/2 hidden lg:flex flex-col items-center justify-center">
-          <div className="p-3 rounded-3xl bg-white border-4 border-amber-300 shadow-2xl ring-4 ring-sky-100 animate-pulse">
+          <div className="relative w-64 h-64 rounded-3xl overflow-hidden border-4 border-amber-200 shadow-2xl group ring-8 ring-sky-50">
             <img
-              src="/logo.png"
-              alt="شعار فينيسيا الأصلي"
-              className="w-48 h-auto object-contain"
+              src="https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=700&q=80"
+              alt="خير المزارع الطبيعي وألبان فينيسيا"
+              className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
             />
+            {/* Glass Overlay Tag */}
+            <div className="absolute bottom-3 inset-x-3 bg-white/90 backdrop-blur-md p-2.5 rounded-2xl border border-white/40 text-center shadow-lg">
+              <span className="text-xs font-black text-slate-950 block leading-tight">
+                لبن مزارعنا فجر اليوم 🥛
+              </span>
+              <span className="text-[10px] text-amber-700 font-bold block mt-0.5">
+                طبيعي 100% بدون أي إضافات
+              </span>
+            </div>
           </div>
-          <span className="text-xs font-black text-amber-950 mt-3 bg-amber-100/90 px-4 py-1 rounded-full border border-amber-300 shadow-sm">
-            طبيعي 100% بدون أي مواد حافظة
-          </span>
         </div>
       </section>
 
