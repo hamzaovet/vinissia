@@ -1,0 +1,28 @@
+{
+  "headers": [
+    {
+      "source": "/vinissia.apk",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/downloads/vinissia.apk",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/vinissia.apk",
+      "destination": "/api/download/apk",
+      "permanent": false
+    },
+    {
+      "source": "/downloads/vinissia.apk",
+      "destination": "/api/download/apk",
+      "permanent": false
+    }
+  ]
+}
