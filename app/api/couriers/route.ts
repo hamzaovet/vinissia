@@ -54,3 +54,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, isAvailable, name, phone, vehicleType } = body;
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: "معرف الطيار مطلوب" }, { status: 400 });
+    }
+
+    const updated = await prisma.courier.update({
+      where: { id },
+      data: {
+        ...(typeof isAvailable === "boolean" ? { isAvailable } : {}),
+        ...(name ? { name: name.trim() } : {}),
+        ...(phone ? { phone: phone.trim() } : {}),
+        ...(vehicleType ? { vehicleType: vehicleType.trim() } : {}),
+      },
+    });
+
+    return NextResponse.json({ success: true, courier: updated, message: "تم تحديث بيانات الطيار بنجاح" });
+  } catch (error: any) {
+    console.error("Couriers PATCH Error:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}

@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
     const cleanUser = username.trim().toLowerCase();
 
-    // Check special Maestro fallback credentials if DB not reached or direct
+    // Check special Maestro / Manager fallback credentials if direct
     if (cleanUser === "maestro" && password === "123456789" && pin === "157230") {
       let dbUser = await prisma.user.findUnique({ where: { username: "maestro" } });
       if (!dbUser) {
@@ -93,6 +93,110 @@ export async function POST(req: Request) {
           username: dbUser.username,
           role: dbUser.role,
           phone: dbUser.phone,
+          permissions: dbUser.permissions ? JSON.parse(dbUser.permissions) : [],
+        },
+      });
+    }
+
+    if (cleanUser === "manager" && password === "123456789" && pin === "112233") {
+      let dbUser = await prisma.user.findUnique({ where: { username: "manager" } });
+      if (!dbUser) {
+        dbUser = await prisma.user.create({
+          data: {
+            name: "أ/ إبراهيم فينيسيا (المدير العام للمعمل والفروع)",
+            username: "manager",
+            passwordHash: "123456789",
+            pin: "112233",
+            phone: "01118400151",
+            role: "manager",
+            permissions: JSON.stringify(["pos", "inventory", "orders", "settings", "reports", "users", "scale", "treasury"]),
+            isActive: true,
+          },
+        });
+      }
+
+      if (!dbUser.isActive) {
+        return NextResponse.json({ success: false, error: "هذا الحساب معطل" }, { status: 403 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: dbUser.id,
+          name: dbUser.name,
+          username: dbUser.username,
+          role: dbUser.role,
+          phone: dbUser.phone,
+          permissions: dbUser.permissions ? JSON.parse(dbUser.permissions) : [],
+        },
+      });
+    }
+
+    if (cleanUser === "cashier_heliopolis" && (password === "123456789" || pin === "223344")) {
+      const branches = await prisma.branch.findMany();
+      const helio = branches.find((b) => b.code === "BR-HELIOPOLIS") || branches[0];
+      let dbUser = await prisma.user.findUnique({ where: { username: "cashier_heliopolis" }, include: { branch: true } });
+      if (!dbUser) {
+        dbUser = await prisma.user.create({
+          data: {
+            name: "كاشير فرع مصر الجديدة وجسر السويس",
+            username: "cashier_heliopolis",
+            passwordHash: "123456789",
+            pin: "223344",
+            phone: "0226342212",
+            role: "cashier",
+            branchId: helio?.id || null,
+            permissions: JSON.stringify(["pos", "inventory", "orders"]),
+            isActive: true,
+          },
+          include: { branch: true },
+        });
+      }
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: dbUser.id,
+          name: dbUser.name,
+          username: dbUser.username,
+          role: dbUser.role,
+          phone: dbUser.phone,
+          branchId: dbUser.branchId,
+          branch: dbUser.branch,
+          permissions: dbUser.permissions ? JSON.parse(dbUser.permissions) : [],
+        },
+      });
+    }
+
+    if (cleanUser === "cashier_qobba" && (password === "123456789" || pin === "334455")) {
+      const branches = await prisma.branch.findMany();
+      const qobba = branches.find((b) => b.code === "HQ-QOBBA") || branches[1] || branches[0];
+      let dbUser = await prisma.user.findUnique({ where: { username: "cashier_qobba" }, include: { branch: true } });
+      if (!dbUser) {
+        dbUser = await prisma.user.create({
+          data: {
+            name: "كاشير فرع حدائق القبة (الرئيسي)",
+            username: "cashier_qobba",
+            passwordHash: "123456789",
+            pin: "334455",
+            phone: "0224555203",
+            role: "cashier",
+            branchId: qobba?.id || null,
+            permissions: JSON.stringify(["pos", "inventory", "orders"]),
+            isActive: true,
+          },
+          include: { branch: true },
+        });
+      }
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: dbUser.id,
+          name: dbUser.name,
+          username: dbUser.username,
+          role: dbUser.role,
+          phone: dbUser.phone,
+          branchId: dbUser.branchId,
+          branch: dbUser.branch,
           permissions: dbUser.permissions ? JSON.parse(dbUser.permissions) : [],
         },
       });

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { startContinuousAlarm, stopContinuousAlarm, playSound } from "@/lib/sounds";
 import {
   Scale,
   Plus,
@@ -181,45 +182,12 @@ export default function PosPage() {
   // Delivery Order Ringing Audio Alert
   const startAlarmSound = () => {
     try {
-      if (!audioCtxRef.current) {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioContextClass) audioCtxRef.current = new AudioContextClass();
-      }
-      const ctx = audioCtxRef.current;
-      if (!ctx) return;
-      if (ctx.state === "suspended") {
-        ctx.resume();
-      }
-
-      if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
-
-      const playChime = () => {
-        try {
-          const now = ctx.currentTime;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(880, now);
-          osc.frequency.exponentialRampToValueAtTime(587, now + 0.35);
-          gain.gain.setValueAtTime(0.35, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.4);
-        } catch {}
-      };
-
-      playChime();
-      alarmIntervalRef.current = setInterval(playChime, 1400);
+      startContinuousAlarm(1400);
     } catch {}
   };
 
   const stopAlarmSound = () => {
-    if (alarmIntervalRef.current) {
-      clearInterval(alarmIntervalRef.current);
-      alarmIntervalRef.current = null;
-    }
+    stopContinuousAlarm();
     if (alarmOrder) {
       lastAcknowledgedOrderId.current = alarmOrder.id;
     }

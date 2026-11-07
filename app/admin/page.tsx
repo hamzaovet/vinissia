@@ -67,7 +67,7 @@ export default function AdminPage() {
   // Auth State
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "orders" | "products" | "categories" | "treasury" | "users" | "customers" | "settings" | "card"
+    "overview" | "orders" | "products" | "categories" | "treasury" | "couriers" | "users" | "customers" | "settings" | "card"
   >("overview");
 
   // Branches & Active Branch Filter
@@ -91,6 +91,9 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [couriers, setCouriers] = useState<any[]>([]);
+  const [showCourierModal, setShowCourierModal] = useState(false);
+  const [courierForm, setCourierForm] = useState({ name: "", phone: "", vehicleType: "موتوسيكل سريع 🛵" });
+  const [savingCourier, setSavingCourier] = useState(false);
   const [settings, setSettings] = useState<any>(null);
 
   // Filter & Search States
@@ -773,6 +776,56 @@ export default function AdminPage() {
   };
 
   // Assign Courier to Order
+  
+  // Handle Add Courier
+  const handleAddCourier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!courierForm.name || !courierForm.phone) return;
+    try {
+      setSavingCourier(true);
+      const res = await fetch("/api/couriers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(courierForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowCourierModal(false);
+        setCourierForm({ name: "", phone: "", vehicleType: "موتوسيكل سريع 🛵" });
+        // Refresh couriers
+        const cres = await fetch("/api/couriers");
+        const cdata = await cres.json();
+        if (cdata.success) setCouriers(cdata.couriers || []);
+        alert("✅ تمت إضافة الطيار بنجاح إلى الأسطول");
+      } else {
+        alert(data.error || "فشل إضافة الطيار");
+      }
+    } catch {
+      alert("تعذر الاتصال بالخادم");
+    } finally {
+      setSavingCourier(false);
+    }
+  };
+
+  // Handle Toggle Courier Availability
+  const handleToggleCourier = async (courierId: string, currentStatus: boolean) => {
+    try {
+      const res = await fetch("/api/couriers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: courierId, isAvailable: !currentStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCouriers((prev) =>
+          prev.map((c) => (c.id === courierId ? { ...c, isAvailable: !currentStatus } : c))
+        );
+      }
+    } catch {
+      alert("فشل تحديث حالة الطيار");
+    }
+  };
+
   const handleAssignCourier = async (orderId: string, courierId: string) => {
     try {
       const res = await fetch("/api/orders", {
@@ -975,6 +1028,7 @@ export default function AdminPage() {
             { key: "products", label: `الأصناف والمخزن (${products.length})`, icon: Scale },
             { key: "categories", label: `الأقسام (${categories.length})`, icon: Layers },
             { key: "treasury", label: "الخزينة وجاري المالك", icon: Wallet },
+            { key: "couriers", label: `أسطول الطيارين (${couriers.length})`, icon: Truck },
             { key: "users", label: `الطاقم والصلاحيات (${users.length})`, icon: Users },
             { key: "customers", label: `العملاء (${customers.length})`, icon: ShieldCheck },
             { key: "settings", label: "إعدادات المتجر", icon: Settings },
@@ -1656,6 +1710,311 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* TAB: TREASURY & OWNER ACCOUNT (الخزينة وجاري المالك) */}
+        {activeTab === "treasury" && (
+          <div className="space-y-6">
+            {/* Header & Quick Action Buttons */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+              <div className="space-y-1">
+                <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-amber-600" />
+                  <span>الخزينة وحسابات الفروع وجاري المالك</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  متابعة النقدية المتوفرة بالدرج، مسحوبات وإيداعات المالك (جاري المالك)، المصروفات النثرية، وصافي الأرباح.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => {
+                    setTreasuryForm({
+                      branchId: selectedBranchId !== "ALL" ? selectedBranchId : (branches[0]?.id || ""),
+                      type: "OUT",
+                      category: "OWNER_WITHDRAWAL",
+                      amount: "",
+                      description: "مسحوبات نقدية - جاري المالك",
+                    });
+                    setShowTreasuryModal(true);
+                  }}
+                  className="py-2.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <Coins className="w-4 h-4" />
+                  <span>سحب نقدي (جاري المالك) 💸</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setTreasuryForm({
+                      branchId: selectedBranchId !== "ALL" ? selectedBranchId : (branches[0]?.id || ""),
+                      type: "IN",
+                      category: "OWNER_DEPOSIT",
+                      amount: "",
+                      description: "إيداع وتغذية الخزينة - جاري المالك",
+                    });
+                    setShowTreasuryModal(true);
+                  }}
+                  className="py-2.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إيداع وتغذية (جاري المالك) 📥</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setTreasuryForm({
+                      branchId: selectedBranchId !== "ALL" ? selectedBranchId : (branches[0]?.id || ""),
+                      type: "OUT",
+                      category: "EXPENSE",
+                      amount: "",
+                      description: "مصروفات نثرية / تشغيلية",
+                    });
+                    setShowTreasuryModal(true);
+                  }}
+                  className="py-2.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition flex items-center gap-1.5 border border-slate-200"
+                >
+                  <Banknote className="w-4 h-4 text-rose-600" />
+                  <span>تسجيل مصروفات 🧾</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Financial Metrics Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-1 shadow-sm">
+                <span className="text-xs font-bold text-slate-500 block">رصيد الخزينة الحالي (نقدية بالدرج)</span>
+                <div className="font-mono text-2xl font-black text-emerald-700">
+                  {treasuryData?.metrics?.currentCashBalance ?? 0} ج.م
+                </div>
+                <span className="text-[10px] text-slate-400 block">
+                  {selectedBranchId === "ALL" ? "إجمالي كل الفروع" : "رصيد الفرع المحدد"}
+                </span>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-1 shadow-sm">
+                <span className="text-xs font-bold text-slate-500 block">صافي حساب جاري المالك</span>
+                <div className="font-mono text-2xl font-black text-amber-700">
+                  {treasuryData?.metrics?.netOwnerAccount ?? 0} ج.م
+                </div>
+                <span className="text-[10px] text-slate-400 block">
+                  مسحوبات: {treasuryData?.metrics?.ownerWithdrawals ?? 0} | إيداعات: {treasuryData?.metrics?.ownerDeposits ?? 0}
+                </span>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-1 shadow-sm">
+                <span className="text-xs font-bold text-slate-500 block">إجمالي مبيعات الفواتير</span>
+                <div className="font-mono text-2xl font-black text-slate-900">
+                  {treasuryData?.metrics?.totalSalesRevenue ?? 0} ج.م
+                </div>
+                <span className="text-[10px] text-slate-400 block">
+                  كاشير: {treasuryData?.metrics?.posSales ?? 0} | دليفري: {treasuryData?.metrics?.deliverySales ?? 0}
+                </span>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-1 shadow-sm">
+                <span className="text-xs font-bold text-slate-500 block">صافي الأرباح التقديرية</span>
+                <div className="font-mono text-2xl font-black text-sky-700">
+                  {treasuryData?.metrics?.netProfit ?? 0} ج.م
+                </div>
+                <span className="text-[10px] text-slate-400 block">
+                  المصروفات: {treasuryData?.metrics?.totalExpenses ?? 0} ج.م
+                </span>
+              </div>
+            </div>
+
+            {/* Treasury Ledger Table */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                  <History className="w-4 h-4 text-slate-500" />
+                  <span>دفتر حركات الخزينة والحسابات (وارد / منصرف / جاري المالك):</span>
+                </h4>
+                <button
+                  onClick={fetchTreasury}
+                  className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>تحديث</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-bold">
+                    <tr>
+                      <th className="p-3">التاريخ والوقت</th>
+                      <th className="p-3">الفرع</th>
+                      <th className="p-3">نوع الحركة</th>
+                      <th className="p-3">التبويب</th>
+                      <th className="p-3">المبلغ</th>
+                      <th className="p-3">الرصيد بعد الحركة</th>
+                      <th className="p-3">البيان والتفاصيل</th>
+                      <th className="p-3">المسؤول</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono">
+                    {loadingTreasury ? (
+                      <tr>
+                        <td colSpan={8} className="text-center py-8 text-slate-400">
+                          جارٍ تحميل دفتر الخزينة...
+                        </td>
+                      </tr>
+                    ) : !treasuryData?.transactions || treasuryData.transactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="text-center py-8 text-slate-400 font-sans">
+                          لا توجد حركات مسجلة بالخزينة بعد (بداية نظيفة 100%)
+                        </td>
+                      </tr>
+                    ) : (
+                      treasuryData.transactions.map((t: any) => (
+                        <tr key={t.id} className="hover:bg-slate-50">
+                          <td className="p-3 text-slate-600 font-sans text-[11px]">
+                            {new Date(t.createdAt).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" })}
+                          </td>
+                          <td className="p-3 font-sans font-bold text-slate-800">
+                            {t.branch?.name || "الخزينة العامة"}
+                          </td>
+                          <td className="p-3 font-sans">
+                            {t.type === "IN" ? (
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-black border border-emerald-200 text-[11px]">
+                                وارد (إيداع) +
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-black border border-rose-200 text-[11px]">
+                                منصرف (سحب) -
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 font-sans text-slate-700 font-bold">
+                            {t.category === "OWNER_WITHDRAWAL" && "مسحوبات جاري المالك"}
+                            {t.category === "OWNER_DEPOSIT" && "إيداعات جاري المالك"}
+                            {t.category === "POS_SALE" && "مبيعات كاشير"}
+                            {t.category === "DELIVERY_COLLECTION" && "تحصيل دليفري"}
+                            {t.category === "EXPENSE" && "مصروفات نثرية"}
+                            {!["OWNER_WITHDRAWAL", "OWNER_DEPOSIT", "POS_SALE", "DELIVERY_COLLECTION", "EXPENSE"].includes(t.category) && t.category}
+                          </td>
+                          <td className={`p-3 font-black text-sm ${t.type === "IN" ? "text-emerald-700" : "text-rose-700"}`}>
+                            {t.type === "IN" ? `+${t.amount}` : `-${t.amount}`} ج.م
+                          </td>
+                          <td className="p-3 font-bold text-slate-900">
+                            {t.balanceAfter} ج.م
+                          </td>
+                          <td className="p-3 font-sans text-slate-700 max-w-xs truncate">
+                            {t.description}
+                          </td>
+                          <td className="p-3 font-sans text-slate-600 text-[11px]">
+                            {t.recordedBy || "المايسترو"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        
+        {/* TAB: COURIERS & FLEET (أسطول طياري الدليفري) */}
+        {activeTab === "couriers" && (
+          <div className="space-y-6">
+            {/* Header Card */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+              <div className="space-y-1">
+                <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-amber-600" />
+                  <span>إدارة أسطول طياري الدليفري والتوصيل السريع</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  متابعة حالة الطيارين الميدانيين، تفعيل الـ GPS المباشر، وتوزيع طلبات الفروع.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowCourierModal(true)}
+                className="py-2.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5 shadow-sm self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" />
+                <span>إضافة طيار جديد للأسطول 🛵</span>
+              </button>
+            </div>
+
+            {/* Couriers Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {couriers.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-slate-400 bg-white rounded-3xl border border-slate-200">
+                  لا يوجد طيارين مسجلين بعد. اضغط على "إضافة طيار جديد" لبدء تسجيل الأسطول.
+                </div>
+              ) : (
+                couriers.map((c) => (
+                  <div
+                    key={c.id}
+                    className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-sm hover:border-amber-300 transition"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center font-bold text-lg">
+                          🛵
+                        </div>
+                        <div>
+                          <h4 className="font-black text-slate-900 text-sm">{c.name}</h4>
+                          <span className="text-[11px] text-slate-500 block">{c.vehicleType || "موتوسيكل سريع"}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleToggleCourier(c.id, c.isAvailable)}
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-black border transition ${
+                          c.isAvailable
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-slate-100 text-slate-500 border-slate-200"
+                        }`}
+                      >
+                        {c.isAvailable ? "متاح للطلبات ✅" : "غير متاح ⏸️"}
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs border-t border-slate-100 pt-3">
+                      <div className="flex justify-between text-slate-600">
+                        <span>رقم الهاتف:</span>
+                        <a href={`tel:${c.phone}`} className="font-mono font-bold text-blue-600 hover:underline">
+                          {c.phone}
+                        </a>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>الطلبات النشطة حالياً:</span>
+                        <span className="font-mono font-bold text-amber-700">{c._count?.orders || 0} أوردر</span>
+                      </div>
+                    </div>
+
+                    {/* Quick Action Buttons */}
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                      <a
+                        href={`https://wa.me/2${c.phone.replace(/[^0-9]/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition flex items-center justify-center gap-1.5 border border-emerald-200"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>واتساب</span>
+                      </a>
+
+                      <a
+                        href={`tel:${c.phone}`}
+                        className="py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-xs transition flex items-center justify-center gap-1.5 border border-slate-200"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-amber-600" />
+                        <span>اتصال</span>
+                      </a>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         {/* TAB 5: STAFF & USERS & BRANCH LINK */}
         {activeTab === "users" && (
           <div className="space-y-4">
@@ -2104,6 +2463,84 @@ export default function AdminPage() {
       />
 
       
+      
+      {/* ADD COURIER MODAL */}
+      {showCourierModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" dir="rtl">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-5 text-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
+                <Truck className="w-5 h-5 text-amber-600" />
+                <span>إضافة كابتن / طيار دليفري جديد</span>
+              </h3>
+              <button
+                onClick={() => setShowCourierModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCourier} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold block">اسم الكابتن / الطيار *</label>
+                <input
+                  type="text"
+                  required
+                  value={courierForm.name}
+                  onChange={(e) => setCourierForm({ ...courierForm, name: e.target.value })}
+                  placeholder="مثال: كابتن أحمد فينيسيا"
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-bold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold block">رقم الهاتف / الواتساب *</label>
+                <input
+                  type="tel"
+                  required
+                  value={courierForm.phone}
+                  onChange={(e) => setCourierForm({ ...courierForm, phone: e.target.value })}
+                  placeholder="01018671000"
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-mono font-bold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold block">نوع وسيلة التوصيل</label>
+                <select
+                  value={courierForm.vehicleType}
+                  onChange={(e) => setCourierForm({ ...courierForm, vehicleType: e.target.value })}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-bold"
+                >
+                  <option value="موتوسيكل سريع 🛵">موتوسيكل سريع 🛵</option>
+                  <option value="سكوتر دليفري 🛵">سكوتر دليفري 🛵</option>
+                  <option value="سيارة مجهزة ومبردة 🚐">سيارة مجهزة ومبردة 🚐</option>
+                </select>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowCourierModal(false)}
+                  className="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCourier}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{savingCourier ? "جارٍ الحفظ..." : "حفظ وإضافة الطيار"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* TREASURY TRANSACTION MODAL (تسجيل حركة خزينة / جاري المالك) */}
       {showTreasuryModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4" dir="rtl">
