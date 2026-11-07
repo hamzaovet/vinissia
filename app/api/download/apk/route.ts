@@ -1,14 +1,14 @@
 import fs from "fs";
 import path from "path";
-import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const candidates = [
-      path.join(process.cwd(), "private", "vinissia.apk"),
       path.join(process.cwd(), "public", "downloads", "vinissia.apk"),
+      path.join(process.cwd(), "public", "vinissia.apk"),
+      path.join(process.cwd(), "private", "vinissia.apk"),
     ];
 
     for (const filePath of candidates) {
@@ -20,8 +20,7 @@ export async function GET() {
             "Content-Type": "application/vnd.android.package-archive",
             "Content-Disposition": 'attachment; filename="vinissia.apk"',
             "Content-Length": fileBuffer.length.toString(),
-            "Cache-Control": "no-store, no-cache, must-revalidate",
-            "Pragma": "no-cache",
+            "Cache-Control": "public, max-age=1800, must-revalidate",
             "X-APK-Version": "1.0.0",
             "X-APK-Package": "com.vinissia.app",
           },
@@ -29,13 +28,12 @@ export async function GET() {
       }
     }
 
-    // Fallback to GitHub Release asset
-    return NextResponse.redirect(
-      "https://github.com/hamzaovet/vinissia/releases/latest/download/vinissia.apk",
-      { status: 302 }
-    );
+    return new Response("جارٍ تجهيز ملف التطبيق، يرجى المحاولة بعد لحظات", {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
   } catch (err: any) {
     console.error("APK Download error:", err);
-    return new Response("Error serving APK file", { status: 500 });
+    return new Response("خطأ في تحميل ملف التطبيق", { status: 500 });
   }
 }
