@@ -250,6 +250,7 @@ export async function PATCH(req: Request) {
 
       await prisma.treasuryTransaction.create({
         data: {
+          branchId: updated.branchId || null,
           type: "IN",
           category: "DELIVERY_COLLECTION",
           amount: updated.totalAmount,

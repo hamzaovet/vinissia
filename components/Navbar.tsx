@@ -26,7 +26,10 @@ export default function Navbar({ settings }: { settings?: any }) {
     } catch {}
   }, []);
 
-  const isManagementRoute = pathname.startsWith("/admin") || pathname.startsWith("/pos");
+  const isManagementRoute =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/pos") ||
+    pathname.startsWith("/login");
 
   const hotline = settings?.hotline || "01018671000";
   const storeName = settings?.storeName || "ألبان فينيسيا";
@@ -89,31 +92,17 @@ export default function Navbar({ settings }: { settings?: any }) {
               <span className="hidden md:inline">كارت الـ 2 QR</span>
             </button>
 
-            {/* Authenticated Staff Shortcuts */}
-            {staffUser ? (
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/admin"
-                  className="py-2 px-3 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-xs font-bold transition flex items-center gap-1.5"
-                >
-                  <ShieldCheck className="w-4 h-4 text-amber-600" />
-                  <span className="hidden sm:inline">لوحة الإدارة</span>
-                </Link>
-                <Link
-                  href="/pos"
-                  className="py-2 px-3 rounded-2xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-900 text-xs font-bold transition flex items-center gap-1.5"
-                >
-                  <Calculator className="w-4 h-4 text-sky-600" />
-                  <span className="hidden sm:inline">كاشير الصالة</span>
-                </Link>
-              </div>
-            ) : (
+            {/* Authenticated Staff Quick Access (Discreet) */}
+            {staffUser && (
               <Link
-                href="/login"
-                className="p-2.5 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-800 transition shadow-sm"
-                title="بوابة دخول الطاقم والإدارة"
+                href={staffUser.role === "cashier" ? "/pos" : "/admin"}
+                className="py-2 px-3 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                title={staffUser.role === "cashier" ? "فتح شاشة الكاشير" : "لوحة الإدارة"}
               >
-                <ShieldCheck className="w-4 h-4" />
+                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                <span className="hidden sm:inline">
+                  {staffUser.role === "cashier" ? "الكاشير" : "لوحة الإدارة"}
+                </span>
               </Link>
             )}
 

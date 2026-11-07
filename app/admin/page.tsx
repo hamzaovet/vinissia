@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CardQRModal from "@/components/CardQRModal";
@@ -45,7 +45,19 @@ import {
   FileSpreadsheet,
   History,
   ClipboardList,
+  Wallet,
+  Banknote,
+  Coins,
+  BellRing,
+  Send,
 } from "lucide-react";
+
+const formatUnit = (unit?: string | null) => {
+  if (!unit) return "";
+  const cleaned = unit.trim();
+  if (cleaned === "1 كجم" || cleaned === "كجم") return "كجم";
+  return cleaned;
+};
 
 export default function AdminPage() {
   const router = useRouter();
@@ -53,7 +65,7 @@ export default function AdminPage() {
   // Auth State
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "orders" | "products" | "categories" | "users" | "customers" | "settings" | "card"
+    "overview" | "orders" | "products" | "categories" | "treasury" | "users" | "customers" | "settings" | "card"
   >("overview");
 
   // Branches & Active Branch Filter
@@ -123,6 +135,30 @@ export default function AdminPage() {
   const [auditBranchId, setAuditBranchId] = useState<string>("");
   const [auditCountedQty, setAuditCountedQty] = useState<string>("");
   const [auditNotes, setAuditNotes] = useState<string>("");
+  // Item Stock Card Opening Stock Edit
+  const [openingBranchId, setOpeningBranchId] = useState<string>("");
+  const [newOpeningStockQty, setNewOpeningStockQty] = useState<string>("");
+  const [openingNotes, setOpeningNotes] = useState<string>("");
+  const [isUpdatingOpening, setIsUpdatingOpening] = useState(false);
+
+  // Treasury State
+  const [treasuryData, setTreasuryData] = useState<any>(null);
+  const [loadingTreasury, setLoadingTreasury] = useState(false);
+  const [showTreasuryModal, setShowTreasuryModal] = useState(false);
+  const [treasuryForm, setTreasuryForm] = useState({
+    branchId: "",
+    type: "OUT",
+    category: "OWNER_WITHDRAWAL",
+    amount: "",
+    description: "",
+  });
+
+  // Delivery Alarm State
+  const [alarmOrder, setAlarmOrder] = useState<any>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const alarmIntervalRef = useRef<any>(null);
+  const lastAcknowledgedOrderId = useRef<string>("");
+
 
   // Category Modal (Create & Edit)
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -234,6 +270,15 @@ export default function AdminPage() {
           ordersCount: ords.length,
           pendingDelivery: pending,
         }));
+
+        const pendingDelivs = ords.filter((o: any) => o.orderType === "delivery" && o.status === "PENDING");
+        if (pendingDelivs.length > 0) {
+          const newest = pendingDelivs[0];
+          if (newest.id !== lastAcknowledgedOrderId.current && !alarmOrder) {
+            setAlarmOrder(newest);
+            startAlarmSound();
+          }
+        }
       }
 
       if (dataP.success) {
@@ -370,6 +415,152 @@ export default function AdminPage() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  
+  // Submit Opening Stock Update (تعديل رصيد أول المدة الافتتاحي)
+  const handleUpdateOpening = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stockCardProduct || !openingBranchId || newOpeningStockQty === "") return;
+
+    try {
+      setIsUpdatingOpening(true);
+      const res = await fetch("/api/stock-movements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: stockCardProduct.id,
+          branchId: openingBranchId,
+          type: "UPDATE_OPENING",
+          qty: Number(newOpeningStockQty),
+          notes: openingNotes || "تعديل واعتماد رصيد أول المدة (الجرد الافتتاحي)",
+          recordedBy: currentUser?.name || "المايسترو",
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ " + data.message);
+        setNewOpeningStockQty("");
+        setOpeningNotes("");
+        handleOpenStockCard(stockCardProduct);
+        loadAllData();
+      } else {
+        alert(data.error || "فشل تعديل رصيد أول المدة");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("حدث خطأ أثناء تعديل رصيد أول المدة");
+    } finally {
+      setIsUpdatingOpening(false);
+    }
+  };
+
+  // Treasury Data Fetcher
+  const fetchTreasury = async () => {
+    try {
+      setLoadingTreasury(true);
+      const res = await fetch(`/api/treasury?branchId=${selectedBranchId}`);
+      const data = await res.json();
+      if (data.success) {
+        setTreasuryData(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingTreasury(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "treasury") {
+      fetchTreasury();
+    }
+  }, [activeTab, selectedBranchId]);
+
+  // Handle Save Treasury Movement
+  const handleSaveTreasury = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!treasuryForm.amount || !treasuryForm.description) return;
+
+    try {
+      const res = await fetch("/api/treasury", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branchId: treasuryForm.branchId || (selectedBranchId !== "ALL" ? selectedBranchId : (branches[0]?.id || null)),
+          type: treasuryForm.category === "OWNER_DEPOSIT" ? "IN" : "OUT",
+          category: treasuryForm.category,
+          amount: Number(treasuryForm.amount),
+          description: treasuryForm.description,
+          recordedBy: currentUser?.name || "المايسترو",
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ تم تسجيل حركة الخزينة بنجاح");
+        setShowTreasuryModal(false);
+        setTreasuryForm({
+          branchId: "",
+          type: "OUT",
+          category: "OWNER_WITHDRAWAL",
+          amount: "",
+          description: "",
+        });
+        fetchTreasury();
+      } else {
+        alert(data.error || "فشل تسجيل حركة الخزينة");
+      }
+    } catch {
+      alert("تعذر الاتصال بالسيرفر");
+    }
+  };
+
+  // Delivery Alarm Sound Loop
+  const startAlarmSound = () => {
+    try {
+      if (!audioCtxRef.current) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) audioCtxRef.current = new AudioContextClass();
+      }
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume();
+
+      if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
+
+      const playChime = () => {
+        try {
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.exponentialRampToValueAtTime(587, now + 0.35);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.4);
+        } catch {}
+      };
+
+      playChime();
+      alarmIntervalRef.current = setInterval(playChime, 1400);
+    } catch {}
+  };
+
+  const stopAlarmSound = () => {
+    if (alarmIntervalRef.current) {
+      clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = null;
+    }
+    if (alarmOrder) {
+      lastAcknowledgedOrderId.current = alarmOrder.id;
+    }
+    setAlarmOrder(null);
   };
 
   // Toggle User Active Status (Maestro Power)
@@ -648,6 +839,36 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans" dir="rtl">
       {/* Top Header (Fresh Milk White Theme) */}
+      
+      {/* DELIVERY AUDIO ALARM BANNER */}
+      {alarmOrder && (
+        <div className="bg-rose-600 text-white px-4 py-2.5 flex items-center justify-between animate-pulse shadow-lg z-50" dir="rtl">
+          <div className="flex items-center gap-2.5 font-bold text-xs sm:text-sm">
+            <BellRing className="w-5 h-5 animate-bounce" />
+            <span>
+              🚨 جرس تنبيه عاجل: أوردر دليفري جديد وارد الآن! رقم #{alarmOrder.orderNumber} للعميل ({alarmOrder.customerName}) بمبلغ {alarmOrder.totalAmount} ج.م
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                stopAlarmSound();
+                setActiveTab("orders");
+              }}
+              className="px-3 py-1 rounded-xl bg-white text-rose-700 font-black text-xs hover:bg-slate-100 transition shadow-sm"
+            >
+              عرض وقبول الأوردر 👁️
+            </button>
+            <button
+              onClick={stopAlarmSound}
+              className="px-3 py-1 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs transition border border-white/20"
+            >
+              كتم التنبيه 🔇
+            </button>
+          </div>
+        </div>
+      )}
+
       <header className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3 flex flex-wrap items-center justify-between gap-3 no-print sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3">
           {/* Venice Oval Emblem */}
@@ -717,7 +938,7 @@ export default function AdminPage() {
             className="py-1.5 px-3 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-xs font-bold text-sky-800 transition flex items-center gap-1.5"
           >
             <Scale className="w-3.5 h-3.5 text-sky-600" />
-            <span>كاشير الصالة</span>
+            <span>الكاشير</span>
           </Link>
 
           <button
@@ -751,6 +972,7 @@ export default function AdminPage() {
             { key: "orders", label: `الطلبات (${branchFilteredOrders.length})`, icon: Truck },
             { key: "products", label: `الأصناف والمخزن (${products.length})`, icon: Scale },
             { key: "categories", label: `الأقسام (${categories.length})`, icon: Layers },
+            { key: "treasury", label: "الخزينة وجاري المالك", icon: Wallet },
             { key: "users", label: `الطاقم والصلاحيات (${users.length})`, icon: Users },
             { key: "customers", label: `العملاء (${customers.length})`, icon: ShieldCheck },
             { key: "settings", label: "إعدادات المتجر", icon: Settings },
@@ -1214,7 +1436,7 @@ export default function AdminPage() {
                                       : "bg-emerald-50 text-emerald-800 border border-emerald-200"
                                   }`}
                                 >
-                                  {stockVal} {prod.unit}
+                                  {stockVal} {formatUnit(prod.unit)}
                                 </span>
                               </td>
                             );
@@ -1222,7 +1444,7 @@ export default function AdminPage() {
 
                           {/* Total Global Stock */}
                           <td className="p-3.5 text-center font-mono font-black text-slate-950">
-                            {prod.stockQty} {prod.unit}
+                            {prod.stockQty} {formatUnit(prod.unit)}
                           </td>
 
                           {/* Actions: Stock Card, Replenish, Edit, Delete */}
@@ -1742,6 +1964,84 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              
+            {/* Branches Dynamic Configuration */}
+            <div className="border-t border-slate-100 pt-6 space-y-4">
+              <div className="space-y-1">
+                <h4 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <Store className="w-4 h-4 text-amber-600" />
+                  <span>بيانات وهواتف الفروع الرسمية (ديناميكية 100%)</span>
+                </h4>
+                <p className="text-xs text-slate-500">
+                  تعديل عناوين وأرقام هواتف وواتساب كل فرع لربطها بالدليفري والواتساب.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {branches.map((b) => (
+                  <div key={b.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-900">{b.name}</span>
+                      <span className="font-mono text-[10px] bg-white px-2 py-0.5 rounded-md border border-slate-200 text-slate-600">
+                        {b.code}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">العنوان بالتفصيل:</label>
+                        <input
+                          type="text"
+                          defaultValue={b.address}
+                          onBlur={async (e) => {
+                            await fetch("/api/branches", {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: b.id, address: e.target.value }),
+                            });
+                          }}
+                          className="w-full py-1.5 px-2.5 rounded-xl bg-white border border-slate-200 text-slate-800"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] text-slate-500 block">التليفون الأرضي:</label>
+                          <input
+                            type="text"
+                            defaultValue={b.phone}
+                            onBlur={async (e) => {
+                              await fetch("/api/branches", {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ id: b.id, phone: e.target.value }),
+                              });
+                            }}
+                            className="w-full py-1.5 px-2.5 rounded-xl bg-white border border-slate-200 text-slate-800 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 block">رقم الواتساب:</label>
+                          <input
+                            type="text"
+                            defaultValue={b.whatsapp || ""}
+                            onBlur={async (e) => {
+                              await fetch("/api/branches", {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ id: b.id, whatsapp: e.target.value }),
+                              });
+                            }}
+                            className="w-full py-1.5 px-2.5 rounded-xl bg-white border border-slate-200 text-slate-800 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
               <div className="pt-4 border-t border-slate-100 flex justify-end">
                 <button
                   type="submit"
@@ -1787,6 +2087,116 @@ export default function AdminPage() {
         settings={settings}
       />
 
+      
+      {/* TREASURY TRANSACTION MODAL (تسجيل حركة خزينة / جاري المالك) */}
+      {showTreasuryModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4" dir="rtl">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-5 text-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
+                  💰
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900">تسجيل حركة نقدية في الخزينة</h3>
+                  <p className="text-xs text-slate-500">حسابات الفروع وحساب جاري المالك</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowTreasuryModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTreasury} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold block">الفرع المسؤول *</label>
+                <select
+                  value={treasuryForm.branchId}
+                  onChange={(e) => setTreasuryForm({ ...treasuryForm, branchId: e.target.value })}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-bold"
+                >
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold block">نوع التبويب *</label>
+                <select
+                  value={treasuryForm.category}
+                  onChange={(e) => {
+                    const cat = e.target.value;
+                    setTreasuryForm({
+                      ...treasuryForm,
+                      category: cat,
+                      type: cat === "OWNER_DEPOSIT" ? "IN" : "OUT",
+                      description:
+                        cat === "OWNER_WITHDRAWAL"
+                          ? "مسحوبات نقدية - جاري المالك"
+                          : cat === "OWNER_DEPOSIT"
+                          ? "إيداع وتغذية الخزينة - جاري المالك"
+                          : "مصروفات نثرية / تشغيلية",
+                    });
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-bold"
+                >
+                  <option value="OWNER_WITHDRAWAL">سحب نقدي من الدرج (جاري المالك) 💸</option>
+                  <option value="OWNER_DEPOSIT">إيداع وتغذية نقدية (جاري المالك) 📥</option>
+                  <option value="EXPENSE">مصروفات نثرية / تشغيلية 🧾</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold block">المبلغ بالجنيه (ج.م) *</label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  placeholder="0.00"
+                  value={treasuryForm.amount}
+                  onChange={(e) => setTreasuryForm({ ...treasuryForm, amount: e.target.value })}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-mono font-black text-base"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold block">البيان والتفاصيل *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="سبب السحب أو الإيداع..."
+                  value={treasuryForm.description}
+                  onChange={(e) => setTreasuryForm({ ...treasuryForm, description: e.target.value })}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTreasuryModal(false)}
+                  className="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs transition shadow-md"
+                >
+                  تأكيد وحفظ الحركة 💾
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ITEM STOCK CARD MODAL (كارت الصنف والمطابقة والجرد الفعلي) */}
       {showStockCardModal && stockCardProduct && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1831,7 +2241,7 @@ export default function AdminPage() {
                     <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                       <span className="font-bold text-xs text-slate-800">{b.name}</span>
                       <span className="font-mono font-black text-sm text-amber-700">
-                        {currentQty} {stockCardProduct.unit}
+                        {currentQty} {formatUnit(stockCardProduct.unit)}
                       </span>
                     </div>
 
@@ -1955,10 +2365,10 @@ export default function AdminPage() {
                               m.qty > 0 ? "text-emerald-600" : "text-rose-600"
                             }`}
                           >
-                            {m.qty > 0 ? `+${m.qty}` : m.qty} {stockCardProduct.unit}
+                            {m.qty > 0 ? `+${m.qty}` : m.qty} {formatUnit(stockCardProduct.unit)}
                           </td>
                           <td className="p-2 font-black text-slate-900">
-                            {m.balanceAfter} {stockCardProduct.unit}
+                            {m.balanceAfter} {formatUnit(stockCardProduct.unit)}
                           </td>
                           <td className="p-2 text-slate-600 font-sans">{m.reference || m.notes || "—"}</td>
                           <td className="p-2 text-slate-500 font-sans">{m.recordedBy || "المايسترو"}</td>

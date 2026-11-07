@@ -105,6 +105,20 @@ export async function POST(req: Request) {
           totalIn: { increment: movementQty },
         },
       });
+    } else if (type === "UPDATE_OPENING") {
+      // Setting or updating initial opening balance
+      const newOpening = Number(Number(qty).toFixed(3));
+      const diff = Number((newOpening - bStock.openingStock).toFixed(3));
+      newStock = Number((bStock.stockQty + diff).toFixed(3));
+      movementQty = newOpening;
+
+      await prisma.branchStock.update({
+        where: { id: bStock.id },
+        data: {
+          openingStock: newOpening,
+          stockQty: newStock,
+        },
+      });
     } else if (type === "AUDIT_ADJUST") {
       // Actual physical count adjustment
       const actual = Number(Number(actualCountedQty).toFixed(3));
@@ -156,6 +170,8 @@ export async function POST(req: Request) {
       message:
         type === "SUPPLY"
           ? `تم تسجيل توريد ${movementQty} ${product.unit} بنجاح. الرصيد الحالي بالفرع: ${newStock}`
+          : type === "UPDATE_OPENING"
+          ? `تم تعديل رصيد أول المدة إلى ${movementQty} ${product.unit} بنجاح. الرصيد الحالي: ${newStock}`
           : `تمت تسوية الجرد الفعلي بنجاح. الرصيد المعتمد بالفرع: ${newStock} ${product.unit}`,
     });
   } catch (error: any) {

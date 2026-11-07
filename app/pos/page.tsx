@@ -23,6 +23,10 @@ import {
   LogOut,
   MapPin,
   Building2,
+  BellRing,
+  Send,
+  Save,
+  Sparkles,
 } from "lucide-react";
 
 interface Product {
@@ -64,7 +68,15 @@ interface Branch {
   code: string;
   address: string;
   phone: string;
+  whatsapp?: string;
 }
+
+const formatUnit = (unit?: string | null) => {
+  if (!unit) return "";
+  const cleaned = unit.trim();
+  if (cleaned === "1 كجم" || cleaned === "كجم") return "كجم";
+  return cleaned;
+};
 
 export default function PosPage() {
   const router = useRouter();
@@ -83,8 +95,8 @@ export default function PosPage() {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [cashGiven, setCashGiven] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "instapay">("cash");
-  const [customerName, setCustomerName] = useState("عميل صالة");
-  const [customerPhone, setCustomerPhone] = useState("01000000000");
+  const [customerName, setCustomerName] = useState("عميل كاشير");
+  const [customerPhone, setCustomerPhone] = useState("");
 
   // Weighted Selection Modal
   const [scaleProduct, setScaleProduct] = useState<Product | null>(null);
@@ -93,9 +105,16 @@ export default function PosPage() {
   const [scaleAmount, setScaleAmount] = useState<string>("30");
   const [scaleGrams, setScaleGrams] = useState<string>("250");
 
-  // Last completed order for printing receipt
+  // Post Checkout & Receipt State
   const [lastOrder, setLastOrder] = useState<any>(null);
+  const [showCompletedModal, setShowCompletedModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Delivery Alarm State
+  const [alarmOrder, setAlarmOrder] = useState<any>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const alarmIntervalRef = useRef<any>(null);
+  const lastAcknowledgedOrderId = useRef<string>("");
 
   const barcodeRef = useRef<HTMLInputElement>(null);
 
@@ -110,7 +129,7 @@ export default function PosPage() {
       const saved = localStorage.getItem("vinissia_staff_user");
       if (saved) {
         const u = JSON.parse(saved);
-        if (u.role === "owner" || u.role === "manager" || u.role === "cashier") {
+        if (u.role === "owner" || u.role === "manager" || u.role === "branch_manager" || u.role === "cashier") {
           setStaff(u);
           if (u.branchId) {
             setSelectedBranchId(u.branchId);
@@ -138,7 +157,7 @@ export default function PosPage() {
       const data = await res.json();
       if (data.success && data.user) {
         if (data.user.role === "delivery") {
-          setUnlockError("حساب كابتن التوصيل غير مصرح له بفتح كاشير الصالة");
+          setUnlockError("حساب كابتن التوصيل غير مصرح له بفتح شاشة الكاشير");
           return;
         }
         localStorage.setItem("vinissia_staff_user", JSON.stringify(data.user));
@@ -157,6 +176,85 @@ export default function PosPage() {
       setUnlocking(false);
     }
   };
+
+  // Delivery Order Ringing Audio Alert
+  const startAlarmSound = () => {
+    try {
+      if (!audioCtxRef.current) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) audioCtxRef.current = new AudioContextClass();
+      }
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
+
+      const playChime = () => {
+        try {
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.exponentialRampToValueAtTime(587, now + 0.35);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.4);
+        } catch {}
+      };
+
+      playChime();
+      alarmIntervalRef.current = setInterval(playChime, 1400);
+    } catch {}
+  };
+
+  const stopAlarmSound = () => {
+    if (alarmIntervalRef.current) {
+      clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = null;
+    }
+    if (alarmOrder) {
+      lastAcknowledgedOrderId.current = alarmOrder.id;
+    }
+    setAlarmOrder(null);
+  };
+
+  // Polling for incoming delivery orders
+  useEffect(() => {
+    const pollPendingOrders = async () => {
+      try {
+        const res = await fetch("/api/orders?status=PENDING&orderType=delivery");
+        const data = await res.json();
+        if (data.success && data.orders && data.orders.length > 0) {
+          const newest = data.orders[0];
+          // Check if this is for the current branch (or if all branches)
+          const isTargetBranch =
+            !selectedBranchId ||
+            selectedBranchId === "ALL" ||
+            !newest.branchId ||
+            newest.branchId === selectedBranchId;
+
+          if (isTargetBranch && newest.id !== lastAcknowledgedOrderId.current && !alarmOrder) {
+            setAlarmOrder(newest);
+            startAlarmSound();
+          }
+        }
+      } catch {}
+    };
+
+    pollPendingOrders();
+    const interval = setInterval(pollPendingOrders, 6000);
+    return () => {
+      clearInterval(interval);
+      if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
+    };
+  }, [selectedBranchId, alarmOrder]);
 
   // Load Branches, Categories, and Products
   useEffect(() => {
@@ -203,7 +301,7 @@ export default function PosPage() {
   // Add Item to POS Cart
   const addToPosCart = (product: Product, variation?: { unit: string; price: number; qty: number; isWeighted: boolean; weightGrams?: number }) => {
     const rate = product.isWeighted ? (product.pricePerKg || product.basePrice) : product.basePrice;
-    const unitLabel = variation?.unit || product.unit || "قطعة";
+    const unitLabel = variation?.unit || formatUnit(product.unit) || "قطعة";
     const itemPrice = variation ? variation.price : product.basePrice;
     const itemQty = variation ? variation.qty : 1;
     const isWeighted = variation ? variation.isWeighted : Boolean(product.isWeighted);
@@ -341,8 +439,20 @@ export default function PosPage() {
 
   const currentBranch = branches.find((b) => b.id === selectedBranchId) || branches[0];
 
+  // Start a new clean transaction for next customer
+  const startNewTransaction = () => {
+    setPosCart([]);
+    setCashGiven("");
+    setCustomerName("عميل كاشير");
+    setCustomerPhone("");
+    setShowCompletedModal(false);
+    setTimeout(() => {
+      barcodeRef.current?.focus();
+    }, 100);
+  };
+
   // Complete Order
-  const handleCompleteOrder = async () => {
+  const handleCompleteOrder = async (shouldPrintReceipt: boolean) => {
     if (posCart.length === 0) return;
 
     try {
@@ -353,8 +463,8 @@ export default function PosPage() {
         body: JSON.stringify({
           branchId: selectedBranchId || staff?.branchId || null,
           orderType: "pos",
-          customerName,
-          customerPhone,
+          customerName: customerName.trim() || "عميل كاشير",
+          customerPhone: customerPhone.trim() || "01000000000",
           items: posCart.map((i) => ({
             productId: i.productId,
             nameAr: i.nameAr,
@@ -369,24 +479,28 @@ export default function PosPage() {
           deliveryFee: 0,
           totalAmount: total,
           paymentMethod,
-          cashierName: staff?.name || "كاشير الصالة",
-          notes: `فاتورة كاشير صالة - ${currentBranch?.name || "الفرع الرئيسي"}`,
+          cashierName: staff?.name || "الكاشير",
+          notes: `فاتورة بيع مباشر - ${currentBranch?.name || "الفرع الرئيسي"}`,
         }),
       });
 
       const data = await res.json();
       if (data.success && data.order) {
-        setLastOrder({
+        const orderData = {
           ...data.order,
           branchName: currentBranch?.name || "فرع حدائق القبة (الرئيسي)",
           branchAddress: currentBranch?.address || "80 شارع المدينة المنورة، حدائق القبة",
-          branchPhone: currentBranch?.phone || "01018671000",
-        });
-        setPosCart([]);
-        setCashGiven("");
-        setTimeout(() => {
-          window.print();
-        }, 300);
+          branchPhone: currentBranch?.phone || "0224382540",
+          savedCart: [...posCart],
+        };
+        setLastOrder(orderData);
+        setShowCompletedModal(true);
+
+        if (shouldPrintReceipt) {
+          setTimeout(() => {
+            window.print();
+          }, 300);
+        }
       } else {
         alert(data.error || "فشل تسجيل الفاتورة");
       }
@@ -396,6 +510,47 @@ export default function PosPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Open WhatsApp with Itemized Invoice
+  const handleSendWhatsAppInvoice = () => {
+    if (!lastOrder) return;
+    const phone = lastOrder.customerPhone || customerPhone;
+    if (!phone || phone === "01000000000") {
+      const promptPhone = prompt("أدخل رقم هاتف أو واتساب العميل:");
+      if (!promptPhone) return;
+      openWhatsApp(promptPhone);
+    } else {
+      openWhatsApp(phone);
+    }
+  };
+
+  const openWhatsApp = (phoneStr: string) => {
+    const cleanPhone = phoneStr.replace(/\D/g, "");
+    let itemsText = "";
+    try {
+      const items = lastOrder.savedCart || JSON.parse(lastOrder.items || "[]");
+      itemsText = items.map((it: any) => `• ${it.nameAr} (${it.unit} × ${it.qty}) = ${it.price * it.qty} ج.م`).join("\n");
+    } catch {
+      itemsText = "تفاصيل المشتريات";
+    }
+
+    const message = `🥛 *فاتورة مشتريات من ألبان فينيسيا*
+رقم الفاتورة: #${lastOrder.orderNumber}
+الفرع: ${lastOrder.branchName}
+التاريخ: ${new Date().toLocaleString("ar-EG")}
+-----------------------------
+${itemsText}
+-----------------------------
+💰 *الإجمالي النهائي: ${lastOrder.totalAmount} ج.م*
+طريقة الدفع: ${lastOrder.paymentMethod === "cash" ? "نقدي" : lastOrder.paymentMethod}
+الكاشير: ${lastOrder.cashierName}
+
+شكراً لزيارتكم ألبان فينيسيا — خير المزارع الطبيعي على أصوله! ✨`;
+
+    const encoded = encodeURIComponent(message);
+    const fullPhone = cleanPhone.startsWith("0") ? `2${cleanPhone}` : cleanPhone;
+    window.open(`https://wa.me/${fullPhone}?text=${encoded}`, "_blank");
   };
 
   if (isLocked) {
@@ -412,7 +567,7 @@ export default function PosPage() {
               </div>
               <span className="text-[11px] font-serif italic text-blue-900 font-bold ml-1">Venice</span>
             </div>
-            <h2 className="text-lg font-black text-slate-900 pt-1">نقطة بيع كاشير الصالة السريعة</h2>
+            <h2 className="text-lg font-black text-slate-900 pt-1">نقطة بيع الكاشير السريعة</h2>
             <p className="text-xs text-slate-500">
               الشاشة محمية. أدخل كود الـ PIN لفتح درج الكاشير
             </p>
@@ -486,7 +641,7 @@ export default function PosPage() {
               className="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm transition shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>{unlocking ? "جارٍ التحقق..." : "فتح درج الكاشير 🔓"}</span>
+              <span>{unlocking ? "جارٍ التحقق..." : "فتح الكاشير 🔓"}</span>
             </button>
           </div>
 
@@ -494,7 +649,7 @@ export default function PosPage() {
             <Link href="/" className="hover:text-slate-900 transition">
               المتجر الرئيسي
             </Link>
-            <Link href="/login?redirect=/pos" className="text-amber-600 font-bold hover:underline">
+            <Link href="/login" className="text-amber-600 font-bold hover:underline">
               تسجيل بالاسم والباسورد ⬅
             </Link>
           </div>
@@ -505,6 +660,33 @@ export default function PosPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans select-none">
+      {/* DELIVERY AUDIO ALARM BANNER */}
+      {alarmOrder && (
+        <div className="bg-rose-600 text-white px-4 py-2.5 flex items-center justify-between shadow-lg z-50 animate-pulse no-print" dir="rtl">
+          <div className="flex items-center gap-2.5 font-bold text-xs sm:text-sm">
+            <BellRing className="w-5 h-5 animate-bounce" />
+            <span>
+              🚨 جرس تنبيه: أوردر دليفري جديد وارد الآن! رقم #{alarmOrder.orderNumber} للعميل ({alarmOrder.customerName}) بمبلغ {alarmOrder.totalAmount} ج.م
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin?tab=orders"
+              onClick={stopAlarmSound}
+              className="px-3 py-1 rounded-xl bg-white text-rose-700 font-black text-xs hover:bg-slate-100 transition shadow-sm"
+            >
+              عرض في الإدارة
+            </Link>
+            <button
+              onClick={stopAlarmSound}
+              className="px-3 py-1 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs transition border border-white/20"
+            >
+              كتم التنبيه 🔇
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* POS Top Bar */}
       <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-sm no-print">
         <div className="flex items-center gap-3">
@@ -512,7 +694,7 @@ export default function PosPage() {
             <span className="text-2xl">🥛</span>
             <div className="text-right">
               <span className="font-black text-slate-900 text-base block leading-none">ألبان فينيسيا</span>
-              <span className="text-[10px] text-amber-700 font-bold block">مش بس لبن وزبادي</span>
+              <span className="text-[10px] text-amber-700 font-bold block">الكاشير ونقاط البيع</span>
             </div>
           </Link>
 
@@ -535,7 +717,7 @@ export default function PosPage() {
           ) : (
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-bold">
               <MapPin className="w-3.5 h-3.5 text-blue-600" />
-              <span>{currentBranch?.name || "فرع الصالة"}</span>
+              <span>{currentBranch?.name || "فرع الكاشير"}</span>
             </span>
           )}
         </div>
@@ -674,7 +856,7 @@ export default function PosPage() {
 
                   <div className="flex items-center justify-between pt-1 border-t border-slate-100 font-mono">
                     <span className="text-sm font-black text-amber-600">{rate} ج.م</span>
-                    <span className="text-[10px] text-slate-500">{p.unit}</span>
+                    <span className="text-[10px] text-slate-500">{formatUnit(p.unit)}</span>
                   </div>
                 </button>
               );
@@ -684,8 +866,26 @@ export default function PosPage() {
 
         {/* LEFT SIDE: POS Cart & Checkout Ticket (4-5 Cols) */}
         <div className="lg:col-span-5 xl:col-span-4 bg-white border-r border-slate-200 p-4 flex flex-col justify-between h-[calc(100vh-60px)] shadow-sm">
+          {/* Customer Quick Inputs */}
+          <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-100 text-xs">
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="اسم العميل (اختياري)..."
+              className="py-1.5 px-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-amber-400"
+            />
+            <input
+              type="text"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              placeholder="تليفون / واتساب العميل..."
+              className="py-1.5 px-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 font-mono focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
           {/* Cart Items List */}
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1 pt-2">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-xs font-bold text-slate-700">
               <span className="flex items-center gap-1.5">
                 <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
@@ -824,18 +1024,89 @@ export default function PosPage() {
               </div>
             )}
 
-            {/* Complete Order Button */}
-            <button
-              onClick={handleCompleteOrder}
-              disabled={posCart.length === 0 || isSubmitting}
-              className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
-            >
-              <Printer className="w-4 h-4" />
-              <span>{isSubmitting ? "جارٍ الحفظ والطباعة..." : "حفظ الفاتورة وطباعة الإيصال 🖨️"}</span>
-            </button>
+            {/* Complete Order Buttons: Print vs Direct Save */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleCompleteOrder(true)}
+                disabled={posCart.length === 0 || isSubmitting}
+                className="py-3 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+              >
+                <Printer className="w-4 h-4" />
+                <span>حفظ وطباعة 🖨️</span>
+              </button>
+
+              <button
+                onClick={() => handleCompleteOrder(false)}
+                disabled={posCart.length === 0 || isSubmitting}
+                className="py-3 px-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                <span>حفظ بدون طباعة 💾</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* POST-CHECKOUT SUCCESS MODAL */}
+      {showCompletedModal && lastOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 font-sans no-print" dir="rtl">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-5 text-center shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-2xl font-bold shadow-md">
+              ✓
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-xl font-black text-slate-900">تم تسجيل الفاتورة بنجاح!</h3>
+              <p className="text-xs text-slate-500 font-mono font-bold">
+                فاتورة رقم #{lastOrder.orderNumber} • {lastOrder.branchName}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-right space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">اسم العميل:</span>
+                <span className="font-bold text-slate-800">{lastOrder.customerName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">الإجمالي النهائي:</span>
+                <span className="font-mono font-black text-amber-700 text-sm">{lastOrder.totalAmount} ج.م</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">طريقة الدفع:</span>
+                <span className="font-bold text-slate-800">{lastOrder.paymentMethod === "cash" ? "نقدي (كاش)" : lastOrder.paymentMethod}</span>
+              </div>
+            </div>
+
+            {/* Actions: Send WhatsApp, Re-print, New Customer */}
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={handleSendWhatsAppInvoice}
+                className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-sm"
+              >
+                <Send className="w-4 h-4" />
+                <span>إرسال الفاتورة للعميل على واتساب 📲</span>
+              </button>
+
+              <button
+                onClick={() => window.print()}
+                className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition flex items-center justify-center gap-2 border border-slate-200"
+              >
+                <Printer className="w-4 h-4 text-amber-600" />
+                <span>إعادة طباعة الإيصال الحراري</span>
+              </button>
+
+              <button
+                onClick={startNewTransaction}
+                className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm transition flex items-center justify-center gap-2 shadow-md shadow-amber-500/20"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>معاملة جديدة (عميل جديد) ✨</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SCALE & WEIGHT SELECTION MODAL */}
       {scaleProduct && (
@@ -851,7 +1122,7 @@ export default function PosPage() {
             <div className="space-y-1">
               <span className="text-xs font-bold text-amber-700 flex items-center gap-1">
                 <Scale className="w-3.5 h-3.5" />
-                <span>حاسبة ميزان الصالة الديجيتال</span>
+                <span>حاسبة ميزان الكاشير الديجيتال</span>
               </span>
               <h3 className="text-lg font-black text-slate-900">{scaleProduct.nameAr}</h3>
               <p className="text-xs text-slate-500 font-mono">
@@ -962,22 +1233,22 @@ export default function PosPage() {
             <p className="text-[10px] font-bold">مش بس لبن وزبادي</p>
             <p className="text-[10px]">{lastOrder.branchName || "فرع حدائق القبة (الرئيسي)"}</p>
             <p className="text-[9px]">{lastOrder.branchAddress || "80 المدينة المنورة — حدائق القبة"}</p>
-            <p className="text-[9px]">هاتف: {lastOrder.branchPhone || "01018671000"}</p>
-            <p className="text-xs font-bold pt-1">فاتورة صالة #{lastOrder.orderNumber}</p>
+            <p className="text-[9px]">هاتف: {lastOrder.branchPhone || "0224382540"}</p>
+            <p className="text-xs font-bold pt-1">فاتورة مبيعات #{lastOrder.orderNumber}</p>
             <p className="text-[9px]">{new Date().toLocaleString("ar-EG")}</p>
           </div>
 
           <div className="py-2 space-y-1 border-b border-black">
             {(() => {
               try {
-                const parsed = JSON.parse(lastOrder.items);
+                const parsed = lastOrder.savedCart || JSON.parse(lastOrder.items || "[]");
                 return parsed.map((it: any, idx: number) => (
                   <div key={idx} className="flex justify-between text-[11px]">
                     <div>
                       <span>{it.nameAr}</span>
                       <span className="text-[9px] block text-gray-700">({it.unit} × {it.qty})</span>
                     </div>
-                    <span className="font-bold">{it.total} ج</span>
+                    <span className="font-bold">{it.total || it.price * it.qty} ج</span>
                   </div>
                 ));
               } catch {
@@ -997,7 +1268,7 @@ export default function PosPage() {
             </div>
             <div className="flex justify-between text-[10px]">
               <span>الكاشير:</span>
-              <span>{lastOrder.cashierName || "كاشير الصالة"}</span>
+              <span>{lastOrder.cashierName || "الكاشير"}</span>
             </div>
           </div>
 
