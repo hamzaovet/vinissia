@@ -156,106 +156,123 @@ export default function HomePage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 font-sans" dir="rtl">
       {/* 1. HERO BANNER */}
-      <section className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/90 p-6 sm:p-10 shadow-xl shadow-slate-200/40">
-        <div className="relative z-10 max-w-2xl space-y-4">
-          {/* Logo & Brand Display: ألبان + Logo + Slogan */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-              <span className="text-4xl sm:text-6xl font-black text-slate-950 tracking-tight">
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-white via-amber-50/20 to-white border border-slate-200/90 p-6 sm:p-10 shadow-xl shadow-slate-200/40">
+        <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center text-center space-y-6">
+          {/* Logo & Brand Display: ألبان + Logo (Enlarged & Centered) */}
+          <div className="flex flex-col items-center space-y-3">
+            <div className="flex items-center justify-center gap-3 sm:gap-5 flex-wrap">
+              <span className="text-4xl sm:text-6xl md:text-7xl font-black text-slate-950 tracking-tight">
                 ألبان
               </span>
-              <div className="p-1.5 rounded-3xl bg-white border border-slate-200/90 shadow-md ring-4 ring-amber-400/30 flex items-center justify-center">
+              <div className="p-2 sm:p-3 rounded-3xl bg-white border border-amber-200/90 shadow-xl shadow-amber-500/10 ring-4 ring-amber-400/30 flex items-center justify-center transition-transform hover:scale-105 duration-300">
                 <img
                   src="/logo.png"
                   alt="فينيسيا"
-                  className="h-16 sm:h-20 md:h-24 w-auto object-contain"
+                  className="h-20 sm:h-28 md:h-32 lg:h-36 w-auto object-contain drop-shadow"
                 />
               </div>
             </div>
 
-            {/* Slogan shifted slightly to the left under the logo */}
-            <div className="pr-6 sm:pr-10 pt-1">
-              <p className="text-base sm:text-xl font-black text-amber-700 flex items-center gap-2">
-                <span className="text-amber-500">✨</span>
-                <span>(مش بس لبن وزبادي)</span>
-                <span className="text-slate-400 text-xs sm:text-sm font-bold font-mono">🥛</span>
-              </p>
+            {/* Slogan Centered */}
+            <p className="text-base sm:text-xl md:text-2xl font-black text-amber-700 flex items-center justify-center gap-2">
+              <span className="text-amber-500">✨</span>
+              <span>(مش بس لبن وزبادي)</span>
+              <span className="text-slate-400 text-xs sm:text-sm font-bold font-mono">🥛</span>
+            </p>
+
+            {/* Fresh Milk Boiling Note */}
+            <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-2xl bg-amber-50/90 border border-amber-300 text-amber-900 text-xs sm:text-sm font-bold shadow-sm">
+              <span>🥛</span>
+              <span>تنبيه خير المزرعة: الرجاء غلي اللبن فوراً عند الاستلام!</span>
             </div>
           </div>
 
-          {/* Fresh Milk Boiling Note */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-50/90 border border-amber-300 text-amber-900 text-xs font-bold shadow-sm">
-            <span>🥛</span>
-            <span>تنبيه خير المزرعة: الرجاء غلي اللبن فوراً عند الاستلام!</span>
-          </div>
+          {/* Symmetrical Balanced Middle Grid: Branches Card + Fresh Milk Visual Card */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full text-right">
+            {/* Card 1: Official Branches & Delivery Info */}
+            <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
+                <span className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                  <Store className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>فروعنا الرسمية</span>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-bold text-[10px] shrink-0">
+                  ليس لدينا فروع أخرى ⛔
+                </span>
+              </div>
 
-          {/* Branches Badges with Direct Google Maps Hyperlinks */}
-          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-            <a
-              href="https://www.google.com/maps/place/30%C2%B006'20.6%22N+31%C2%B019'16.5%22E/@30.1057199,31.3186689,17z/data=!3m1!4b1!4m4!3m3!8m2!3d30.1057199!4d31.3212438?hl=en&entry=ttu&g_ep=EgoyMDI2MTEwMy4wIKXMDSoASAFQAw%3D%3D"
-              target="_blank"
-              rel="noreferrer"
-              className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 text-slate-800 font-bold flex items-center gap-2 shadow-sm transition group"
-              title="افتح موقع فرع جسر السويس على خرائط Google"
-            >
-              <Store className="w-4 h-4 text-amber-600 group-hover:scale-110 transition shrink-0" />
-              <span>الفرع الأول: 17 ش أحمد خليل من جسر السويس أمام سنترال مصر الجديدة</span>
-              <span className="text-[10px] text-blue-600 underline font-mono shrink-0">📍 الخريطة</span>
-            </a>
+              <div className="space-y-2">
+                <a
+                  href="https://www.google.com/maps/place/30%C2%B006'20.6%22N+31%C2%B019'16.5%22E/@30.1057199,31.3186689,17z/data=!3m1!4b1!4m4!3m3!8m2!3d30.1057199!4d31.3212438?hl=en&entry=ttu&g_ep=EgoyMDI2MTEwMy4wIKXMDSoASAFQAw%3D%3D"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2.5 sm:p-3 rounded-xl bg-white hover:bg-amber-50/80 border border-slate-200 hover:border-amber-400 text-slate-800 text-xs font-bold flex items-center justify-between gap-2 shadow-sm transition group"
+                  title="افتح موقع فرع جسر السويس على خرائط Google"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                    <span className="leading-snug">الفرع الأول: 17 ش أحمد خليل من جسر السويس (أمام سنترال مصر الجديدة)</span>
+                  </div>
+                  <span className="text-[10px] sm:text-[11px] text-blue-600 underline font-mono shrink-0 group-hover:scale-105 transition">📍 الخريطة</span>
+                </a>
 
-            <a
-              href="https://www.google.com/maps/place/30%C2%B005'29.0%22N+31%C2%B017'23.1%22E/@30.0913819,31.2871864,17z/data=!3m1!4b1!4m4!3m3!8m2!3d30.0913819!4d31.2897613?hl=en&entry=ttu&g_ep=EgoyMDI2MTEwMy4wIKXMDSoASAFQAw%3D%3D"
-              target="_blank"
-              rel="noreferrer"
-              className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-400 text-slate-800 font-bold flex items-center gap-2 shadow-sm transition group"
-              title="افتح موقع فرع حدائق القبة على خرائط Google"
-            >
-              <Store className="w-4 h-4 text-sky-600 group-hover:scale-110 transition shrink-0" />
-              <span>الفرع الثاني: 101 تقسيم الرقابة الإدارية ش المدينة المنورة - حدائق القبة</span>
-              <span className="text-[10px] text-blue-600 underline font-mono shrink-0">📍 الخريطة</span>
-            </a>
+                <a
+                  href="https://www.google.com/maps/place/30%C2%B005'29.0%22N+31%C2%B017'23.1%22E/@30.0913819,31.2871864,17z/data=!3m1!4b1!4m4!3m3!8m2!3d30.0913819!4d31.2897613?hl=en&entry=ttu&g_ep=EgoyMDI2MTEwMy4wIKXMDSoASAFQAw%3D%3D"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2.5 sm:p-3 rounded-xl bg-white hover:bg-sky-50/80 border border-slate-200 hover:border-sky-400 text-slate-800 text-xs font-bold flex items-center justify-between gap-2 shadow-sm transition group"
+                  title="افتح موقع فرع حدائق القبة على خرائط Google"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
+                    <span className="leading-snug">الفرع الثاني: 101 تقسيم الرقابة الإدارية ش المدينة المنورة (حدائق القبة)</span>
+                  </div>
+                  <span className="text-[10px] sm:text-[11px] text-blue-600 underline font-mono shrink-0 group-hover:scale-105 transition">📍 الخريطة</span>
+                </a>
+              </div>
+            </div>
 
-            <div className="px-2.5 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-bold text-[10px] shrink-0">
-              ليس لدينا فروع أخرى ⛔
+            {/* Card 2: Fresh Farm Dairy Visual Card */}
+            <div className="relative rounded-2xl overflow-hidden border border-amber-200/80 shadow-md min-h-[160px] sm:min-h-[180px] flex items-end group bg-slate-900">
+              <img
+                src="https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80"
+                alt="لبن مزارعنا"
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-700 opacity-90"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent" />
+              <div className="relative z-10 p-4 w-full flex items-center justify-between text-white">
+                <div>
+                  <span className="text-xs sm:text-sm font-black block leading-tight drop-shadow">
+                    لبن مزارعنا فجر اليوم 🥛
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-amber-300 font-bold block mt-0.5 drop-shadow">
+                    طبيعي 100% بدون أي إضافات
+                  </span>
+                </div>
+                <span className="px-3 py-1 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 text-[10px] sm:text-xs font-bold text-white shadow shrink-0">
+                  خير بلدنا ✨
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="pt-2 flex flex-wrap items-center gap-3">
+          {/* Action CTAs (Centered Prominently) */}
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3 w-full">
             <button
               onClick={() => setIsOpen(true)}
-              className="py-3 px-6 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs sm:text-sm transition flex items-center gap-2 shadow-lg shadow-slate-900/15"
+              className="py-3 sm:py-3.5 px-6 sm:px-8 rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-black text-xs sm:text-sm transition flex items-center gap-2.5 shadow-xl shadow-slate-900/15 hover:scale-[1.02] active:scale-95"
             >
-              <Truck className="w-4 h-4 text-amber-400" />
+              <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
               <span>اطلب دليفري الآن لباب بيتك</span>
             </button>
 
             <button
               onClick={() => setShowQrModal(true)}
-              className="py-3 px-4 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-800 font-bold text-xs sm:text-sm transition flex items-center gap-2 shadow-sm"
+              className="py-3 sm:py-3.5 px-5 sm:px-6 rounded-2xl bg-white border-2 border-slate-200 hover:border-amber-400 hover:bg-amber-50/50 text-slate-800 font-bold text-xs sm:text-sm transition flex items-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95"
             >
-              <QrCode className="w-4 h-4 text-amber-500" />
+              <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
               <span>كارت الـ 2 QR (تطبيق أندرويد)</span>
             </button>
-          </div>
-        </div>
-
-        {/* Expressive Food & Dairy Composition Visual on Left */}
-        <div className="absolute left-8 top-1/2 -translate-y-1/2 hidden lg:flex flex-col items-center justify-center">
-          <div className="relative w-64 h-64 rounded-3xl overflow-hidden border-4 border-amber-200 shadow-2xl group ring-8 ring-sky-50">
-            <img
-              src="https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=700&q=80"
-              alt="ألبان فينيسيا"
-              className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-            />
-            {/* Glass Overlay Tag */}
-            <div className="absolute bottom-3 inset-x-3 bg-white/90 backdrop-blur-md p-2.5 rounded-2xl border border-white/40 text-center shadow-lg">
-              <span className="text-xs font-black text-slate-950 block leading-tight">
-                لبن مزارعنا فجر اليوم 🥛
-              </span>
-              <span className="text-[10px] text-amber-700 font-bold block mt-0.5">
-                طبيعي 100% بدون أي إضافات
-              </span>
-            </div>
           </div>
         </div>
       </section>
