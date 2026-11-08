@@ -160,6 +160,7 @@ export default function TrackOrderPage() {
 
     const liveInterval = setInterval(() => {
       fetchLiveData();
+      fetchOrder();
     }, 4000);
 
     return () => clearInterval(liveInterval);
@@ -684,12 +685,20 @@ export default function TrackOrderPage() {
 
           {/* Quick Chat Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
-            {[
-              "لو سمحت رن الجرس بهدوء 🔔",
-              "أنا منتظرك بالأسفل 🛵",
-              "العنوان واضح بالظبط؟ 📍",
-              "شكراً جزيلاً! ⭐",
-            ].map((pill) => (
+            {(viewerRole === "customer" && activeChatTab === "tab2"
+              ? [
+                  "لو في صنف ناقص بدله بصنف مناسب 🥛",
+                  "ممكن تلغي الصنف الناقص وتخصمه من الفاتورة؟ ❌",
+                  "تمام موافق على التعديل الجديد 👍",
+                  "محتاج أضيف صنف تاني لو متاح 🧀",
+                ]
+              : [
+                  "لو سمحت رن الجرس بهدوء 🔔",
+                  "أنا منتظرك بالأسفل 🛵",
+                  "العنوان واضح بالظبط؟ 📍",
+                  "شكراً جزيلاً! ⭐",
+                ]
+            ).map((pill) => (
               <button
                 key={pill}
                 type="button"
@@ -765,13 +774,29 @@ export default function TrackOrderPage() {
               <span>محتويات الطلب ({parsedItems.length} صنف)</span>
             </h3>
 
-            <button
-              onClick={() => setShowReceiptModal(true)}
-              className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>عرض ريسيت الطابعة 🧾</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {viewerRole === "customer" && !isDelivered && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveChatTab("tab2");
+                    window.scrollTo({ top: 350, behavior: "smooth" });
+                  }}
+                  className="text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 py-1 px-2.5 rounded-xl transition flex items-center gap-1"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-sky-600" />
+                  <span>طلب تعديل صنف مع المحل 💬</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => setShowReceiptModal(true)}
+                className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>عرض ريسيت الطابعة 🧾</span>
+              </button>
+            </div>
           </div>
 
           <div className="divide-y divide-slate-100">

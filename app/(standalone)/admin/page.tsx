@@ -282,7 +282,7 @@ export default function AdminPage() {
         const pendingDelivs = ords.filter((o: any) => o.orderType === "delivery" && o.status === "PENDING");
         if (pendingDelivs.length > 0) {
           const newest = pendingDelivs[0];
-          if (newest.id !== lastAcknowledgedOrderId.current && !alarmOrder) {
+          if (newest.id !== lastAcknowledgedOrderId.current && !isOrderMuted(newest.id) && !alarmOrder) {
             setAlarmOrder(newest);
             startAlarmSound();
           }
@@ -564,15 +564,58 @@ export default function AdminPage() {
     } catch {}
   };
 
-  const stopAlarmSound = () => {
+  const isOrderMuted = (orderId: string) => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("vinissia_muted_orders") || "[]");
+      return saved.includes(orderId);
+    } catch {
+      return false;
+    }
+  };
+
+  const muteOrderId = (orderId: string) => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("vinissia_muted_orders") || "[]");
+      if (!saved.includes(orderId)) {
+        saved.push(orderId);
+        localStorage.setItem("vinissia_muted_orders", JSON.stringify(saved.slice(-50)));
+      }
+    } catch {}
+  };
+
+  const stopAlarmSound = (orderIdToMute?: string) => {
+    const id = orderIdToMute || alarmOrder?.id;
+    if (id) {
+      muteOrderId(id);
+      lastAcknowledgedOrderId.current = id;
+    }
     if (alarmIntervalRef.current) {
       clearInterval(alarmIntervalRef.current);
       alarmIntervalRef.current = null;
     }
-    if (alarmOrder) {
-      lastAcknowledgedOrderId.current = alarmOrder.id;
-    }
     setAlarmOrder(null);
+  };
+
+  const handleAcceptAlarmOrder = async (orderToAccept: any) => {
+    if (!orderToAccept) return;
+    const targetId = orderToAccept.id;
+    stopAlarmSound(targetId);
+
+    try {
+      await fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: targetId, status: "PREPARING" }),
+      });
+      setOrders((prev) =>
+        prev.map((o) => (o.id === targetId ? { ...o, status: "PREPARING" } : o))
+      );
+    } catch (e) {
+      console.error("Failed to update accepted order to PREPARING", e);
+    }
+
+    setReceiptModalOrder(orderToAccept);
+    setActiveTab("orders");
   };
 
   // Toggle User Active Status (Maestro Power)
@@ -927,6 +970,175 @@ export default function AdminPage() {
     return orderFilter === "ALL" || o.status === orderFilter;
   });
 
+  // Chat with Customer State
+  const [chatOrder, setChatOrder] = useState<any>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInputText, setChatInputText] = useState("");
+  const [sendingChatMsg, setSendingChatMsg] = useState(false);
+
+  // Edit Order Items State
+  const [editingOrderItems, setEditingOrderItems] = useState<any>(null);
+  const [editItemList, setEditItemList] = useState<any[]>([]);
+  const [selectedAddProductId, setSelectedAddProductId] = useState("");
+  const [savingOrderEdit, setSavingOrderEdit] = useState(false);
+
+  const openOrderChat = (ord: any) => {
+    setChatOrder(ord);
+    setChatMessages([]);
+    setChatInputText("");
+    fetchChatMessages(ord.orderNumber);
+  };
+
+  const fetchChatMessages = async (ordNum: string) => {
+    try {
+      const res = await fetch(`/api/orders/live?orderNumber=${encodeURIComponent(ordNum)}`);
+      const data = await res.json();
+      if (data.success && data.liveData?.chat) {
+        setChatMessages(data.liveData.chat);
+      }
+    } catch {}
+  };
+
+  const sendStoreChatMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInputText.trim() || !chatOrder) return;
+    try {
+      setSendingChatMsg(true);
+      const res = await fetch("/api/orders/live", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SEND_MESSAGE",
+          orderNumber: chatOrder.orderNumber,
+          sender: "store",
+          channel: "customer_store",
+          message: chatInputText.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.chat) {
+        setChatMessages(data.chat);
+        setChatInputText("");
+      }
+    } catch {
+      alert("تعذر إرسال الرسالة");
+    } finally {
+      setSendingChatMsg(false);
+    }
+  };
+
+  const openOrderEdit = (ord: any) => {
+    setEditingOrderItems(ord);
+    let itemsArr: any[] = [];
+    try {
+      itemsArr = typeof ord.items === "string" ? JSON.parse(ord.items) : ord.items || [];
+    } catch {
+      itemsArr = [];
+    }
+    setEditItemList(itemsArr);
+    setSelectedAddProductId("");
+  };
+
+  const handleUpdateItemQty = (idx: number, delta: number) => {
+    setEditItemList((prev) => {
+      const updated = [...prev];
+      const item = { ...updated[idx] };
+      const currentQty = Number(item.qty || item.quantity || 1);
+      const newQty = Math.max(1, currentQty + delta);
+      item.qty = newQty;
+      item.quantity = newQty;
+      const unitPrice = Number(item.price || item.unitPrice || 0);
+      item.total = Number((unitPrice * newQty).toFixed(1));
+      updated[idx] = item;
+      return updated;
+    });
+  };
+
+  const handleRemoveItem = (idx: number) => {
+    if (confirm("هل تريد حذف هذا الصنف من الأوردر لعدم توفره؟")) {
+      setEditItemList((prev) => prev.filter((_, i) => i !== idx));
+    }
+  };
+
+  const handleAddReplacementProduct = () => {
+    if (!selectedAddProductId) return;
+    const prod = products.find((p) => p.id === selectedAddProductId);
+    if (!prod) return;
+
+    setEditItemList((prev) => [
+      ...prev,
+      {
+        productId: prod.id,
+        nameAr: prod.nameAr,
+        unit: prod.unit || "قطعة",
+        qty: 1,
+        quantity: 1,
+        price: prod.basePrice,
+        unitPrice: prod.basePrice,
+        total: prod.basePrice,
+        isWeighted: prod.isWeighted || false,
+      },
+    ]);
+    setSelectedAddProductId("");
+  };
+
+  const handleSaveOrderModifications = async () => {
+    if (!editingOrderItems) return;
+    if (editItemList.length === 0) {
+      alert("لا يمكن حفظ أوردر بدون أي أصناف!");
+      return;
+    }
+
+    const newSubtotal = editItemList.reduce((sum, it) => sum + Number(it.total || (it.price || it.unitPrice || 0) * (it.qty || it.quantity || 1)), 0);
+    const delFee = Number(editingOrderItems.deliveryFee || 0);
+    const newTotal = Number((newSubtotal + delFee).toFixed(1));
+
+    try {
+      setSavingOrderEdit(true);
+      const res = await fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: editingOrderItems.id,
+          items: editItemList,
+          subtotal: newSubtotal,
+          totalAmount: newTotal,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.order) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === editingOrderItems.id ? { ...o, items: editItemList, subtotal: newSubtotal, totalAmount: newTotal } : o))
+        );
+
+        // Auto post system chat message to customer
+        try {
+          await fetch("/api/orders/live", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "SEND_MESSAGE",
+              orderNumber: editingOrderItems.orderNumber,
+              sender: "store",
+              channel: "customer_store",
+              message: `📝 تم تعديل محتويات الأوردر وتحديث الفاتورة بواسطة المحل — الإجمالي الجديد: ${newTotal} ج.م`,
+            }),
+          });
+        } catch {}
+
+        alert(`تم حفظ تعديل الأوردر بنجاح! الإجمالي الجديد: ${newTotal} ج.م وتم إشعار العميل.`);
+        setEditingOrderItems(null);
+      } else {
+        alert(data.error || "فشل حفظ التعديلات");
+      }
+    } catch {
+      alert("تعذر الاتصال بالخادم");
+    } finally {
+      setSavingOrderEdit(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans" dir="rtl">
       {/* Top Header (Fresh Milk White Theme) */}
@@ -942,17 +1154,15 @@ export default function AdminPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                stopAlarmSound();
-                setActiveTab("orders");
-              }}
-              className="px-3 py-1 rounded-xl bg-white text-rose-700 font-black text-xs hover:bg-slate-100 transition shadow-sm"
+              onClick={() => handleAcceptAlarmOrder(alarmOrder)}
+              className="px-3.5 py-1.5 rounded-xl bg-white text-rose-700 font-black text-xs hover:bg-slate-100 transition shadow-sm flex items-center gap-1"
             >
-              عرض وقبول الأوردر 👁️
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>قبول وطباعة الريسيت 🖨️</span>
             </button>
             <button
-              onClick={stopAlarmSound}
-              className="px-3 py-1 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs transition border border-white/20"
+              onClick={() => stopAlarmSound(alarmOrder.id)}
+              className="px-3.5 py-1.5 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs transition border border-white/20"
             >
               كتم التنبيه 🔇
             </button>
@@ -1361,7 +1571,8 @@ export default function AdminPage() {
                           </select>
                         )}
 
-                        {order.status !== "DELIVERED" && (
+                        {/* Only non-delivery (POS in-store) orders can be marked delivered by cashier/admin */}
+                        {order.orderType !== "delivery" && order.status !== "DELIVERED" && (
                           <button
                             onClick={() => handleUpdateOrderStatus(order.id, "DELIVERED")}
                             className="py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition"
@@ -1370,8 +1581,38 @@ export default function AdminPage() {
                           </button>
                         )}
 
+                        {/* Delivery Order Courier Status Badge */}
+                        {order.orderType === "delivery" && (order.status === "OUT_FOR_DELIVERY" || order.status === "ON_THE_WAY") && (
+                          <span className="py-1 px-2.5 rounded-xl bg-sky-50 text-sky-800 border border-sky-200 font-bold text-[11px] flex items-center gap-1 animate-pulse">
+                            <Truck className="w-3.5 h-3.5 text-sky-600" />
+                            <span>مع الطيار</span>
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => openOrderChat(order)}
+                          className="py-1.5 px-2.5 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 text-xs font-bold transition flex items-center gap-1"
+                          title="شات مباشر مع العميل"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 text-sky-600" />
+                          <span>شات العميل 💬</span>
+                        </button>
+
+                        {order.status !== "DELIVERED" && order.status !== "CANCELLED" && (
+                          <button
+                            type="button"
+                            onClick={() => openOrderEdit(order)}
+                            className="py-1.5 px-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold transition flex items-center gap-1"
+                            title="تعديل أصناف الأوردر أو حذف صنف ناقص"
+                          >
+                            <Edit className="w-3.5 h-3.5 text-amber-600" />
+                            <span>تعديل ✏️</span>
+                          </button>
+                        )}
+
                         <Link
-                          href={`/track/${order.orderNumber}`}
+                          href={`/track/${order.orderNumber}?mode=store`}
                           target="_blank"
                           className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition"
                           title="تتبع مباشر"
@@ -3442,6 +3683,266 @@ export default function AdminPage() {
         </div>
       )}
     
+
+      {/* ORDER CHAT MODAL (DIRECT STORE-TO-CUSTOMER CHAT) */}
+      {chatOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 font-sans" dir="rtl">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-slate-950">
+                    محادثة العميل: {chatOrder.customerName}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    #{chatOrder.orderNumber} • {chatOrder.customerPhone}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setChatOrder(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="h-56 overflow-y-auto space-y-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs">
+              {chatMessages.filter(m => !m.channel || m.channel === "customer_store").length === 0 ? (
+                <p className="text-center text-slate-400 py-12 font-bold">
+                  لا توجد رسائل سابقة. يمكنك إرسال استفسار للعميل الآن بخصوص الأصناف أو التوصيل!
+                </p>
+              ) : (
+                chatMessages
+                  .filter(m => !m.channel || m.channel === "customer_store")
+                  .map((msg) => {
+                    const isStore = msg.sender === "store";
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex flex-col ${isStore ? "items-end" : "items-start"}`}
+                      >
+                        <div
+                          className={`max-w-[85%] p-2.5 rounded-2xl ${
+                            isStore
+                              ? "bg-slate-900 text-amber-300 rounded-br-none font-bold"
+                              : "bg-white text-slate-900 border border-slate-200 rounded-bl-none shadow-xs font-bold"
+                          }`}
+                        >
+                          <span className="text-[9px] block opacity-75 font-mono mb-0.5">
+                            {isStore ? "المحل (أنت)" : "العميل"}
+                          </span>
+                          <p>{msg.text}</p>
+                        </div>
+                        <span className="text-[9px] text-slate-400 font-mono mt-0.5 px-1">{msg.time}</span>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+
+            {/* Canned Quick Replies */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
+              {[
+                "عفواً الصنف غير متوفر حالياً 🥛",
+                "تحب نبدله بصنف تاني؟ 🧀",
+                "تم تجهيز طلبك والطيار في الطريق 🛵",
+              ].map((pill) => (
+                <button
+                  key={pill}
+                  type="button"
+                  onClick={() => setChatInputText(pill)}
+                  className="py-1 px-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 whitespace-nowrap transition font-bold"
+                >
+                  {pill}
+                </button>
+              ))}
+            </div>
+
+            {/* Input Form */}
+            <form onSubmit={sendStoreChatMessage} className="flex gap-2">
+              <input
+                type="text"
+                value={chatInputText}
+                onChange={(e) => setChatInputText(e.target.value)}
+                placeholder="اكتب رسالة للعميل بخصوص الأوردر..."
+                className="flex-1 py-2 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500"
+              />
+              <button
+                type="submit"
+                disabled={sendingChatMsg || !chatInputText.trim()}
+                className="py-2 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span>إرسال</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ORDER EDIT MODAL (MODIFY ITEMS / REMOVE OUT OF STOCK) */}
+      {editingOrderItems && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 font-sans" dir="rtl">
+          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <Edit className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-slate-950">
+                    تعديل أصناف الأوردر #{editingOrderItems.orderNumber}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    العميل: {editingOrderItems.customerName} ({editingOrderItems.customerPhone})
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setEditingOrderItems(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Items List */}
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1 text-xs">
+              {editItemList.map((it, idx) => {
+                const qty = Number(it.qty || it.quantity || 1);
+                const price = Number(it.price || it.unitPrice || 0);
+                return (
+                  <div key={idx} className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <p className="font-black text-slate-900">{it.nameAr || it.name}</p>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {price} ج.م / {it.unit || "قطعة"}
+                      </span>
+                    </div>
+
+                    {/* Quantity Controls */}
+                    <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateItemQty(idx, -1)}
+                        className="w-5 h-5 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700"
+                      >
+                        -
+                      </button>
+                      <span className="font-mono font-black text-xs px-1">{qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateItemQty(idx, 1)}
+                        className="w-5 h-5 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <div className="text-left font-mono font-black text-sm text-slate-900 w-16">
+                      {(it.total || price * qty).toFixed(1)} ج.م
+                    </div>
+
+                    {/* Delete Item */}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(idx)}
+                      className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition"
+                      title="حذف صنف ناقص من الأوردر"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Add Replacement Item Section */}
+            <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-2">
+              <span className="text-[11px] font-black text-amber-950 flex items-center gap-1">
+                <Plus className="w-3.5 h-3.5 text-amber-600" />
+                <span>إضافة صنف بديل من قائمة المحل:</span>
+              </span>
+              <div className="flex gap-2">
+                <select
+                  value={selectedAddProductId}
+                  onChange={(e) => setSelectedAddProductId(e.target.value)}
+                  className="flex-1 py-2 px-2.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500"
+                >
+                  <option value="">-- اختر صنفاً بديلاً لإضافته --</option>
+                  {products.filter(p => p.inStock).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nameAr} ({p.basePrice} ج.م / {p.unit})
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleAddReplacementProduct}
+                  disabled={!selectedAddProductId}
+                  className="py-2 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition disabled:opacity-50"
+                >
+                  إضافة للأوردر
+                </button>
+              </div>
+            </div>
+
+            {/* Recalculated Summary */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5 text-xs">
+              <div className="flex justify-between text-slate-600">
+                <span>إجمالي الأصناف المعدلة:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {editItemList.reduce((sum, it) => sum + Number(it.total || (it.price || it.unitPrice || 0) * (it.qty || it.quantity || 1)), 0).toFixed(1)} ج.م
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>خدمة التوصيل:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {editingOrderItems.deliveryFee || 0} ج.م
+                </span>
+              </div>
+              <div className="flex justify-between text-sm font-black text-slate-950 pt-1.5 border-t border-slate-200">
+                <span>الإجمالي الجديد المطلوب:</span>
+                <span className="font-mono text-base text-amber-600">
+                  {(
+                    editItemList.reduce((sum, it) => sum + Number(it.total || (it.price || it.unitPrice || 0) * (it.qty || it.quantity || 1)), 0) +
+                    Number(editingOrderItems.deliveryFee || 0)
+                  ).toFixed(1)} ج.م
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditingOrderItems(null)}
+                className="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+              >
+                إلغاء
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveOrderModifications}
+                disabled={savingOrderEdit}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{savingOrderEdit ? "جارٍ الحفظ وتحديث الفاتورة..." : "حفظ التعديلات وإشعار العميل 💾"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* RECEIPT PREVIEW & PRINT MODAL */}
       {receiptModalOrder && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 font-sans no-print" dir="rtl">

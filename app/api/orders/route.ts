@@ -228,7 +228,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { orderId, status, courierId, notes } = body;
+    const { orderId, status, courierId, notes, items, subtotal, deliveryFee, totalAmount } = body;
 
     if (!orderId) {
       return NextResponse.json({ success: false, error: "معرف الطلب مطلوب" }, { status: 400 });
@@ -243,6 +243,10 @@ export async function PATCH(req: Request) {
     if (status) updateData.status = status;
     if (courierId !== undefined) updateData.courierId = courierId ? courierId : null;
     if (notes !== undefined) updateData.notes = notes;
+    if (items !== undefined) updateData.items = typeof items === "string" ? items : JSON.stringify(items);
+    if (subtotal !== undefined) updateData.subtotal = Number(subtotal);
+    if (deliveryFee !== undefined) updateData.deliveryFee = Number(deliveryFee);
+    if (totalAmount !== undefined) updateData.totalAmount = Number(totalAmount);
 
     const updated = await prisma.order.update({
       where: { id: orderId },
