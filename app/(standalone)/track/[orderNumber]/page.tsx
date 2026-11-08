@@ -17,6 +17,7 @@ const LiveTrackingMap = dynamic(() => import("@/components/LiveTrackingMap"), {
     </div>
   ),
 });
+
 import {
   CheckCircle2,
   Clock,
@@ -41,13 +42,19 @@ import {
   AlertCircle,
   Camera,
   Check,
+  User,
+  Layers,
 } from "lucide-react";
 
 export default function TrackOrderPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const orderNumber = params?.orderNumber ? decodeURIComponent(params.orderNumber as string).trim() : "";
-  const isCourierMode = searchParams.get("mode") === "courier";
+  const isCourierParam = searchParams.get("mode") === "courier";
+  const isStoreParam = searchParams.get("mode") === "store";
+
+  // Viewer Role: "customer" | "courier" | "store"
+  const [viewerRole, setViewerRole] = useState<"customer" | "courier" | "store">("customer");
 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -60,14 +67,38 @@ export default function TrackOrderPage() {
   const [gpsError, setGpsError] = useState("");
   const watchIdRef = useRef<number | null>(null);
 
+  // Multi-order Queue Status
+  const [courierActiveCount, setCourierActiveCount] = useState(1);
+  const [stopNumber, setStopNumber] = useState(1);
+  const [courierName, setCourierName] = useState<string | null>(null);
+  const [courierPhone, setCourierPhone] = useState<string | null>(null);
+
   // Digital Receipt State
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
 
-  // In-App Instant Chat State
-  const [chatMessages, setChatMessages] = useState<Array<{ id: string; sender: string; text: string; time: string }>>([]);
+  // In-App Segmented Chat State
+  // Channels: "customer_courier" | "customer_store" | "courier_store"
+  const [activeChatTab, setActiveChatTab] = useState<"tab1" | "tab2">("tab1");
+  const [chatMessages, setChatMessages] = useState<Array<{ id: string; sender: string; channel?: string; text: string; time: string }>>([]);
   const [chatInput, setChatInput] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
+
+  // Determine role based on params and staff auth
+  useEffect(() => {
+    try {
+      const staffUser = JSON.parse(localStorage.getItem("vinissia_staff_user") || "null");
+      if (isCourierParam || staffUser?.role === "delivery") {
+        setViewerRole("courier");
+      } else if (isStoreParam || (staffUser && (staffUser.role === "owner" || staffUser.role === "manager" || staffUser.role === "cashier"))) {
+        setViewerRole("store");
+      } else {
+        setViewerRole("customer");
+      }
+    } catch {
+      setViewerRole("customer");
+    }
+  }, [isCourierParam, isStoreParam]);
 
   // 1. Fetch Order Details
   const fetchOrder = async () => {
@@ -88,24 +119,30 @@ export default function TrackOrderPage() {
     }
   };
 
-  // 2. Fetch Live GPS & Chat Thread
+  // 2. Fetch Live GPS, Chat Thread & Multi-stop Queue
   const fetchLiveData = async () => {
     if (!orderNumber) return;
     try {
       const res = await fetch(`/api/orders/live?orderNumber=${encodeURIComponent(orderNumber)}`);
       const data = await res.json();
-      if (data.success && data.liveData) {
-        if (data.liveData.courierLat && data.liveData.courierLng) {
-          setCourierLocation({
-            lat: data.liveData.courierLat,
-            lng: data.liveData.courierLng,
-            speed: data.liveData.speed,
-            lastUpdated: data.liveData.lastUpdated,
-          });
+      if (data.success) {
+        if (data.liveData) {
+          if (data.liveData.courierLat && data.liveData.courierLng) {
+            setCourierLocation({
+              lat: data.liveData.courierLat,
+              lng: data.liveData.courierLng,
+              speed: data.liveData.speed,
+              lastUpdated: data.liveData.lastUpdated,
+            });
+          }
+          if (data.liveData.chat) {
+            setChatMessages(data.liveData.chat);
+          }
         }
-        if (data.liveData.chat) {
-          setChatMessages(data.liveData.chat);
-        }
+        if (data.courierActiveCount) setCourierActiveCount(data.courierActiveCount);
+        if (data.stopNumber) setStopNumber(data.stopNumber);
+        if (data.courierName) setCourierName(data.courierName);
+        if (data.courierPhone) setCourierPhone(data.courierPhone);
       }
     } catch {}
   };
@@ -114,7 +151,6 @@ export default function TrackOrderPage() {
     fetchOrder();
     fetchLiveData();
 
-    // Generate QR code for this tracking URL
     if (typeof window !== "undefined" && orderNumber) {
       const courierUrl = `${window.location.origin}/track/${orderNumber}?mode=courier`;
       QRCode.toDataURL(courierUrl, { width: 180, margin: 1 })
@@ -122,7 +158,6 @@ export default function TrackOrderPage() {
         .catch(() => {});
     }
 
-    // Live polling every 4 seconds for coordinates & chat
     const liveInterval = setInterval(() => {
       fetchLiveData();
     }, 4000);
@@ -130,7 +165,16 @@ export default function TrackOrderPage() {
     return () => clearInterval(liveInterval);
   }, [orderNumber]);
 
-  // 3. Courier Real-Time GPS Broadcaster
+  // Clean up GPS watcher on unmount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
+
+  // 3. Courier Real-Time GPS Broadcaster (Only accessible by courier)
   const startGpsBroadcast = () => {
     if (!navigator.geolocation) {
       setGpsError("خاصية تحديد الموقع غير مدعومة في متصفحك");
@@ -145,7 +189,6 @@ export default function TrackOrderPage() {
         const { latitude, longitude, speed } = pos.coords;
         setCourierLocation({ lat: latitude, lng: longitude, speed: speed || 0, lastUpdated: Date.now() });
 
-        // Post to server
         try {
           await fetch("/api/orders/live", {
             method: "POST",
@@ -161,28 +204,39 @@ export default function TrackOrderPage() {
         } catch {}
       },
       (err) => {
-        console.warn("GPS watch error:", err);
-        // Fallback simulation coordinates near branch
-        const simLat = 30.0915 + (Math.random() - 0.5) * 0.005;
-        const simLng = 31.2895 + (Math.random() - 0.5) * 0.005;
-        setCourierLocation({ lat: simLat, lng: simLng, speed: 32, lastUpdated: Date.now() });
+        console.warn("GPS error:", err);
+        setGpsError("تعذر التقاط إشارة الـ GPS بدقة، تأكد من تفعيل الموقع بالهاتف");
+        setIsBroadcastingGps(false);
       },
-      { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
     );
   };
 
   const stopGpsBroadcast = () => {
-    if (watchIdRef.current !== null) {
+    if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
     setIsBroadcastingGps(false);
   };
 
-  // 4. Send In-App Live Chat Message
+  // 4. Send In-App Chat Message according to selected channel
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || !orderNumber) return;
+
+    // Resolve channel based on role & active tab:
+    // For Customer: tab1 = customer_courier, tab2 = customer_store
+    // For Courier: tab1 = customer_courier, tab2 = courier_store
+    // For Store: tab1 = customer_store, tab2 = courier_store
+    let channel: "customer_courier" | "customer_store" | "courier_store" = "customer_courier";
+    if (viewerRole === "customer") {
+      channel = activeChatTab === "tab1" ? "customer_courier" : "customer_store";
+    } else if (viewerRole === "courier") {
+      channel = activeChatTab === "tab1" ? "customer_courier" : "courier_store";
+    } else {
+      channel = activeChatTab === "tab1" ? "customer_store" : "courier_store";
+    }
 
     try {
       setSendingMsg(true);
@@ -192,8 +246,9 @@ export default function TrackOrderPage() {
         body: JSON.stringify({
           action: "SEND_MESSAGE",
           orderNumber,
+          sender: viewerRole,
+          channel,
           message: chatInput.trim(),
-          sender: isCourierMode ? "courier" : "customer",
         }),
       });
 
@@ -209,7 +264,7 @@ export default function TrackOrderPage() {
     }
   };
 
-  // 5. Courier Status Update
+  // 5. Courier Status Update (Authorized Courier Only)
   const handleUpdateStatus = async (newStatus: string) => {
     if (!order) return;
     try {
@@ -280,14 +335,45 @@ export default function TrackOrderPage() {
   }
 
   const isCancelled = order.status === "CANCELLED";
+  const isDelivered = order.status === "DELIVERED";
   const googleMapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     order.deliveryAddress || "حدائق القبة، القاهرة"
   )}`;
 
+  // Compute Active Chat Channel & Filter Messages
+  let currentTargetChannel: "customer_courier" | "customer_store" | "courier_store" = "customer_courier";
+  let tab1Label = "شات مع الطيار 🛵";
+  let tab2Label = "شات مع المحل 🏪";
+
+  if (viewerRole === "customer") {
+    tab1Label = "محادثة الطيار 🛵";
+    tab2Label = "محادثة المحل 🏪";
+    currentTargetChannel = activeChatTab === "tab1" ? "customer_courier" : "customer_store";
+  } else if (viewerRole === "courier") {
+    tab1Label = "محادثة العميل 👤";
+    tab2Label = "محادثة المحل 🏢";
+    currentTargetChannel = activeChatTab === "tab1" ? "customer_courier" : "courier_store";
+  } else {
+    // Store staff
+    tab1Label = "محادثة العميل 👤";
+    tab2Label = "محادثة الطيار 🛵";
+    currentTargetChannel = activeChatTab === "tab1" ? "customer_store" : "courier_store";
+  }
+
+  const filteredChat = chatMessages.filter((msg) => {
+    if (!msg.channel) {
+      // Legacy backwards compatibility
+      if (currentTargetChannel === "customer_courier") return msg.sender === "customer" || msg.sender === "courier";
+      if (currentTargetChannel === "customer_store") return msg.sender === "customer" || msg.sender === "store";
+      return msg.sender === "courier" || msg.sender === "store";
+    }
+    return msg.channel === currentTargetChannel;
+  });
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 py-6 sm:py-8 px-4 font-sans select-none" dir="rtl">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Navigation Bar & Real Logo */}
+        {/* Top Navbar */}
         <div className="flex items-center justify-between">
           <Link
             href="/"
@@ -316,23 +402,35 @@ export default function TrackOrderPage() {
           </div>
         </div>
 
-        {/* COURIER SCANNER ACTIVATION NOTICE (If in Courier Mode) */}
-        {isCourierMode && (
-          <div className="p-4 rounded-3xl bg-amber-500 text-slate-950 shadow-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-black text-sm flex items-center gap-2">
-                <QrCode className="w-5 h-5" />
-                <span>تم مسح كيو ار كود الطلب بنجاح (بوابة الطيار) 🛵</span>
+        {/* ROLE INDICATOR BADGE */}
+        <div className="flex items-center justify-between px-1 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 font-bold">أنت تشاهد الشاشة بصفتك:</span>
+            {viewerRole === "courier" ? (
+              <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 font-black flex items-center gap-1">
+                <Truck className="w-3.5 h-3.5 text-amber-600" />
+                <span>كابتن التوصيل (الطيار) 🛵</span>
               </span>
-              <span className="text-xs font-mono font-bold bg-slate-950 text-white px-2.5 py-1 rounded-full">
-                #{order.orderNumber}
+            ) : viewerRole === "store" ? (
+              <span className="px-2.5 py-1 rounded-xl bg-sky-100 text-sky-900 border border-sky-300 font-black flex items-center gap-1">
+                <Store className="w-3.5 h-3.5 text-sky-600" />
+                <span>إدارة الفرع والمحل 🏢</span>
               </span>
-            </div>
-            <p className="text-xs text-slate-900 leading-relaxed font-bold">
-              أنت الآن مخوّل للتحكم في هذا الطلب، وبث موقع الـ GPS المباشر للعميل والمحل، وتأكيد التسليم.
-            </p>
+            ) : (
+              <span className="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 font-black flex items-center gap-1">
+                <User className="w-3.5 h-3.5 text-emerald-600" />
+                <span>العميل صاحب الطلب 🥛</span>
+              </span>
+            )}
           </div>
-        )}
+
+          {/* Multi-Order Stop Indicator */}
+          {courierActiveCount > 1 && (
+            <span className="px-2.5 py-1 rounded-xl bg-slate-900 text-amber-400 text-[11px] font-black border border-slate-800 shadow-xs">
+              خط سير متعدد: محطة {stopNumber} من {courierActiveCount}
+            </span>
+          )}
+        </div>
 
         {/* LIVE GPS RADAR & LOCATION VISUALIZER */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xl shadow-slate-200/40 space-y-5">
@@ -347,24 +445,26 @@ export default function TrackOrderPage() {
                   بث الموقع الحي (GPS Live Tracking)
                 </span>
               </div>
-              <h2 className="text-xl font-black text-slate-950">
-                {order.status === "OUT_FOR_DELIVERY"
+              <h2 className="text-lg sm:text-xl font-black text-slate-950">
+                {order.status === "OUT_FOR_DELIVERY" || order.status === "ON_THE_WAY"
                   ? "الطيار في طريقه إليك الآن 🛵"
                   : order.status === "DELIVERED"
                   ? "تم تسليم الطلب بنجاح ✅"
-                  : "جارٍ تجهيز الطلب بالمعمل 🥣"}
+                  : order.status === "PREPARING"
+                  ? "جارٍ تجهيز وتعبئة الطلب بالمعمل 🥣"
+                  : "تم استلام الطلب وبانتظار التأكيد ⏳"}
               </h2>
             </div>
 
             <div className="text-left font-mono">
               <span className="text-[10px] text-slate-400 block">وقت الوصول التقديري</span>
-              <span className="text-base font-black text-amber-600">
-                {order.status === "DELIVERED" ? "وصل بالسلامة" : "15 - 25 دقيقة"}
+              <span className="text-sm sm:text-base font-black text-amber-600">
+                {order.status === "DELIVERED" ? "وصل بالسلامة ✅" : "15 - 25 دقيقة"}
               </span>
             </div>
           </div>
 
-          {/* Dynamic Interactive Leaflet / OpenStreetMap Live Tracking Map */}
+          {/* Interactive Leaflet Map */}
           <div className="space-y-2">
             <LiveTrackingMap
               branch={
@@ -384,19 +484,22 @@ export default function TrackOrderPage() {
             />
           </div>
 
-          {/* Courier Action Controls */}
-          {order.orderType === "delivery" && order.status !== "DELIVERED" && !isCancelled && (
-            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-3">
+          {/* ─────────────────────────────────────────────────────────────
+              ROLE-BASED ACTIONS:
+              1. COURIER ONLY CONTROLS (Only visible if viewerRole === "courier")
+             ───────────────────────────────────────────────────────────── */}
+          {viewerRole === "courier" && order.orderType === "delivery" && !isDelivered && !isCancelled && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-400 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                <span className="text-xs font-black text-slate-950 flex items-center gap-1.5">
                   <LocateFixed className="w-4 h-4 text-amber-600" />
-                  <span>لوحة تحكم الطيار وتفعيل التتبع</span>
+                  <span>لوحة تحكم الطيار وتحديث حالة التوصيل</span>
                 </span>
 
                 {isBroadcastingGps ? (
                   <button
                     onClick={stopGpsBroadcast}
-                    className="py-1 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px] transition"
+                    className="py-1 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px] transition shadow-xs"
                   >
                     إيقاف البث ⏹️
                   </button>
@@ -406,25 +509,35 @@ export default function TrackOrderPage() {
                     className="py-1.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition flex items-center gap-1 shadow-sm"
                   >
                     <Radio className="w-3.5 h-3.5" />
-                    <span>تفعيل بث GPS من هاتفي 📡</span>
+                    <span>تفعيل بث GPS المباشر 📡</span>
                   </button>
                 )}
               </div>
 
-              {/* Status Action Buttons */}
+              {gpsError && (
+                <p className="text-[11px] text-rose-700 font-bold bg-rose-50 p-2 rounded-xl border border-rose-200">
+                  {gpsError}
+                </p>
+              )}
+
+              {/* Status Action Buttons for Courier */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <button
                   type="button"
-                  disabled={updatingStatus || order.status === "OUT_FOR_DELIVERY"}
-                  onClick={() => handleUpdateStatus("OUT_FOR_DELIVERY")}
+                  disabled={updatingStatus || order.status === "ON_THE_WAY" || order.status === "OUT_FOR_DELIVERY"}
+                  onClick={() => handleUpdateStatus("ON_THE_WAY")}
                   className={`py-2.5 px-4 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 ${
-                    order.status === "OUT_FOR_DELIVERY"
+                    order.status === "ON_THE_WAY" || order.status === "OUT_FOR_DELIVERY"
                       ? "bg-sky-100 text-sky-800 border border-sky-300 opacity-80"
                       : "bg-sky-600 hover:bg-sky-500 text-white shadow-sm"
                   }`}
                 >
                   <Truck className="w-4 h-4" />
-                  <span>{order.status === "OUT_FOR_DELIVERY" ? "الطلب في الطريق للعميل حالياً 🛵" : "استلمت وبدأت التحرك 🛵"}</span>
+                  <span>
+                    {order.status === "ON_THE_WAY" || order.status === "OUT_FOR_DELIVERY"
+                      ? "الطلب في الطريق للعميل حالياً 🛵"
+                      : "استلمت وبدأت التحرك للعميل 🛵"}
+                  </span>
                 </button>
 
                 <button
@@ -439,39 +552,126 @@ export default function TrackOrderPage() {
               </div>
             </div>
           )}
+
+          {/* ─────────────────────────────────────────────────────────────
+              2. STORE STAFF MONITOR BANNER (Only visible if viewerRole === "store")
+             ───────────────────────────────────────────────────────────── */}
+          {viewerRole === "store" && !isDelivered && !isCancelled && (
+            <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-200 text-xs text-sky-950 font-bold flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
+                <span>
+                  شاشة متابعة الإدارة والفرع: الطيار يبث مساره الحقيقي للعميل. تأكيد التسليم يتم من تطبيق الطيار فور استلام العميل.
+                </span>
+              </div>
+              <button
+                onClick={() => setShowReceiptModal(true)}
+                className="py-1 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold shrink-0 transition"
+              >
+                طباعة الريسيت 🖨️
+              </button>
+            </div>
+          )}
+
+          {/* ─────────────────────────────────────────────────────────────
+              3. CUSTOMER HELPER CARD (Only visible if viewerRole === "customer")
+             ───────────────────────────────────────────────────────────── */}
+          {viewerRole === "customer" && !isDelivered && !isCancelled && (
+            <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/90 text-xs text-amber-950 font-bold flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  {courierActiveCount > 1
+                    ? `الطيار في الطريق ومعه (${courierActiveCount}) طلبات في خط السير — أوردرك هو المحطة رقم (${stopNumber}) 🛵`
+                    : "الطيار متجه إليك مباشرة بعنوانك المسجل 🛵"}
+                </span>
+              </div>
+
+              {courierPhone ? (
+                <a
+                  href={`tel:${courierPhone}`}
+                  className="py-1.5 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-black transition flex items-center gap-1.5 shadow-xs shrink-0"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>اتصال بالطيار ({courierName || "الكابتن"})</span>
+                </a>
+              ) : (
+                <span className="text-[11px] text-slate-500 font-mono">
+                  جاهزون للتوصيل لباب بيتك بأعلى جودة 🥛
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* IN-APP INSTANT LIVE CHAT (محادثة العميل والفرع والطيار المباشرة) */}
+        {/* ─────────────────────────────────────────────────────────────
+            SEGMENTED IN-APP LIVE CHAT (مقسم حسب القنوات)
+           ───────────────────────────────────────────────────────────── */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
               <MessageCircle className="w-4 h-4 text-emerald-600" />
-              <span>المحادثة الفورية مع الفرع والطيار 💬</span>
+              <span>المحادثة الفورية المباشرة 💬</span>
             </h3>
-            <span className="text-[10px] text-slate-400">تحديث مباشر</span>
+
+            {/* Segmented Chat Channel Tabs */}
+            <div className="flex p-1 bg-slate-100 rounded-2xl text-xs font-black gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveChatTab("tab1")}
+                className={`py-1.5 px-3 rounded-xl transition flex items-center gap-1.5 ${
+                  activeChatTab === "tab1"
+                    ? "bg-white text-slate-950 shadow-xs border border-slate-200/80"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span>{tab1Label}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveChatTab("tab2")}
+                className={`py-1.5 px-3 rounded-xl transition flex items-center gap-1.5 ${
+                  activeChatTab === "tab2"
+                    ? "bg-white text-slate-950 shadow-xs border border-slate-200/80"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span>{tab2Label}</span>
+              </button>
+            </div>
           </div>
 
           {/* Chat Messages Log */}
           <div className="h-44 overflow-y-auto space-y-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs">
-            {chatMessages.length === 0 ? (
-              <p className="text-center text-slate-400 py-8">لا توجد رسائل سابقة. يمكنك كتابة أي استفسار الآن!</p>
+            {filteredChat.length === 0 ? (
+              <p className="text-center text-slate-400 py-8 font-bold">
+                لا توجد رسائل سابقة في هذه المحادثة. يمكنك كتابة أي استفسار الآن!
+              </p>
             ) : (
-              chatMessages.map((msg) => {
-                const isCustomer = msg.sender === "customer";
+              filteredChat.map((msg) => {
+                const isMe = msg.sender === viewerRole;
+                const senderLabel =
+                  msg.sender === "customer"
+                    ? "العميل 👤"
+                    : msg.sender === "courier"
+                    ? "الطيار 🛵"
+                    : "المحل والفرع 🏢";
+
                 return (
                   <div
                     key={msg.id}
-                    className={`flex flex-col ${isCustomer ? "items-end" : "items-start"}`}
+                    className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
                   >
                     <div
                       className={`max-w-[80%] p-2.5 rounded-2xl font-sans ${
-                        isCustomer
+                        isMe
                           ? "bg-amber-500 text-slate-950 rounded-br-none font-bold"
                           : "bg-white text-slate-800 border border-slate-200 rounded-bl-none shadow-xs"
                       }`}
                     >
                       <span className="text-[10px] block opacity-75 font-mono mb-0.5">
-                        {isCustomer ? "أنت (العميل)" : msg.sender === "courier" ? "الطيار 🛵" : "إدارة المعمل 🥛"}
+                        {isMe ? "أنت" : senderLabel}
                       </span>
                       <p>{msg.text}</p>
                     </div>
@@ -484,7 +684,12 @@ export default function TrackOrderPage() {
 
           {/* Quick Chat Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
-            {["لو سمحت رن الجرس بهدوء 🔔", "اللبن مثلج تماماً؟ 🥛", "أنا منتظرك بالأسفل 🛵", "شكراً لكم! ⭐"].map((pill) => (
+            {[
+              "لو سمحت رن الجرس بهدوء 🔔",
+              "أنا منتظرك بالأسفل 🛵",
+              "العنوان واضح بالظبط؟ 📍",
+              "شكراً جزيلاً! ⭐",
+            ].map((pill) => (
               <button
                 key={pill}
                 type="button"
@@ -502,7 +707,11 @@ export default function TrackOrderPage() {
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="اكتب رسالة سريعة للكاشير أو الطيار..."
+              placeholder={
+                activeChatTab === "tab1"
+                  ? `اكتب رسالة إلى ${tab1Label}...`
+                  : `اكتب رسالة إلى ${tab2Label}...`
+              }
               className="flex-1 py-2.5 px-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 transition font-bold"
             />
             <button
@@ -590,7 +799,7 @@ export default function TrackOrderPage() {
             </div>
             {order.orderType === "delivery" && (
               <div className="flex justify-between text-slate-500">
-                <span>مصاريف التوصيل:</span>
+                <span>خدمة التوصيل:</span>
                 <span className="font-mono text-slate-900 font-bold">{order.deliveryFee} ج.م</span>
               </div>
             )}

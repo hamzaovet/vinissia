@@ -1076,9 +1076,7 @@ export default function CartDrawer({ settings }: { settings?: Settings }) {
                     </p>
                   </div>
 
-                  <div className="p-2.5 rounded-xl bg-white border border-amber-200 text-amber-900 text-xs font-bold shadow-xs">
-                    💡 <span className="font-mono font-black text-amber-700">كود الفحص السريع: 157230</span>
-                  </div>
+                  
                 </div>
 
                 <form onSubmit={handleVerifyOtpAndPlaceOrder} className="space-y-3">
@@ -1095,7 +1093,7 @@ export default function CartDrawer({ settings }: { settings?: Settings }) {
                         autoFocus
                         value={otpCodeInput}
                         onChange={(e) => setOtpCodeInput(e.target.value)}
-                        placeholder="157230"
+                        placeholder="••••••"
                         className="w-full py-3.5 pr-12 pl-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-lg font-mono tracking-widest text-center focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 font-black transition"
                       />
                     </div>
