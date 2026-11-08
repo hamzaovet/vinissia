@@ -134,6 +134,8 @@ model Customer {
   name               String
   phone              String    @unique
   email              String?
+  username           String?   @unique
+  password           String?
   address            String?
   zone               String?
   landmark           String?
@@ -186,6 +188,8 @@ model Courier {
   name              String
   phone             String   @unique
   vehicleType       String?  @default("موتوسيكل سريع")
+  branchId          String?
+  branchName        String?
   isAvailable       Boolean  @default(true)
   activeOrdersCount Int      @default(0)
   pendingCash       Float    @default(0)

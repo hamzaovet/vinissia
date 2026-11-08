@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   Truck,
   Phone,
@@ -24,7 +25,22 @@ import {
   ExternalLink,
   QrCode,
   Check,
+  Star,
+  Sparkles,
+  Radio,
 } from "lucide-react";
+
+const LiveTrackingMap = dynamic(() => import("@/components/LiveTrackingMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-64 w-full rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-amber-400 font-bold text-xs">
+      <div className="flex flex-col items-center gap-2">
+        <div className="w-6 h-6 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+        <span>جارٍ تحميل الخريطة المباشرة...</span>
+      </div>
+    </div>
+  ),
+});
 
 type OrderStatus =
   | "PENDING"
@@ -63,6 +79,21 @@ export default function DriverPage() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sharingLocation, setSharingLocation] = useState(false);
+  const [orderFilter, setOrderFilter] = useState<"mine" | "all">("mine");
+  const [expandedMapOrderId, setExpandedMapOrderId] = useState<string | null>(null);
+  const [activeGpsOrders, setActiveGpsOrders] = useState<Record<string, boolean>>({});
+  const watchIdsRef = useRef<Record<string, number>>({});
+
+  // Clean up GPS watchers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(watchIdsRef.current).forEach((id) => {
+        if (typeof navigator !== "undefined" && navigator.geolocation) {
+          navigator.geolocation.clearWatch(id);
+        }
+      });
+    };
+  }, []);
 
   // In-App Chat States per Order
   const [quickMessages, setQuickMessages] = useState<{ [orderId: string]: string }>({});
@@ -88,6 +119,12 @@ export default function DriverPage() {
       console.error("Error fetching orders:", err);
     }
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchOrders();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem("vinissia_staff_user");
@@ -146,18 +183,54 @@ export default function DriverPage() {
     }
   };
 
-  // Share live location link with customer via WhatsApp
-  const shareLiveLocation = (customerPhone: string, orderNumber: string) => {
-    if (!myLocation) {
-      alert("اضغط على 'موقعي الحالي' بالأعلى أولاً لتحديد موقعك عبر الـ GPS");
+  // Toggle real-time GPS broadcast for an order directly to server
+  const toggleGpsBroadcast = (orderNumber: string) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      alert("خاصية تحديد الموقع غير مدعومة في جهازك");
       return;
     }
-    const mapsLink = `https://www.google.com/maps?q=${myLocation.lat},${myLocation.lng}`;
-    const msg = `📍 مرحباً، أنا طيار ألبان فينيسيا 🛵\nجارٍ التوصيل لطلبك رقم #${orderNumber}\nموقعي الحالي المباشر: ${mapsLink}`;
-    window.open(
-      `https://wa.me/2${String(customerPhone).replace(/[^0-9]/g, "")}?text=${encodeURIComponent(msg)}`,
-      "_blank"
+
+    if (activeGpsOrders[orderNumber]) {
+      // Stop broadcast
+      const watchId = watchIdsRef.current[orderNumber];
+      if (watchId !== undefined) {
+        navigator.geolocation.clearWatch(watchId);
+        delete watchIdsRef.current[orderNumber];
+      }
+      setActiveGpsOrders((prev) => ({ ...prev, [orderNumber]: false }));
+      return;
+    }
+
+    // Start live broadcast
+    setActiveGpsOrders((prev) => ({ ...prev, [orderNumber]: true }));
+
+    const id = navigator.geolocation.watchPosition(
+      async (pos) => {
+        const { latitude, longitude, speed, heading } = pos.coords;
+        setMyLocation({ lat: latitude, lng: longitude });
+
+        try {
+          await fetch("/api/orders/live", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "UPDATE_LOCATION",
+              orderNumber,
+              lat: latitude,
+              lng: longitude,
+              heading: heading || 0,
+              speed: speed ? Math.round(speed * 3.6) : 28,
+            }),
+          });
+        } catch {}
+      },
+      (err) => {
+        console.warn("GPS tracking watch error:", err);
+      },
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
     );
+
+    watchIdsRef.current[orderNumber] = id;
   };
 
   // Send In-App Chat Message directly from the driver cockpit
@@ -179,25 +252,46 @@ export default function DriverPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setQuickMessages((prev) => ({ ...prev, [orderId]: "" }));
         setMsgSuccessId(orderId);
+        setQuickMessages((prev) => ({ ...prev, [orderId]: "" }));
         setTimeout(() => setMsgSuccessId(null), 3000);
-      } else {
-        alert(data.error || "فشل إرسال الرسالة للشات");
       }
     } catch {
-      alert("تعذر الاتصال بخادم الشات");
+      alert("تعذر إرسال الرسالة");
     } finally {
       setSendingMsgId(null);
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchOrders();
-    setRefreshing(false);
+  // Claim Order for this Courier
+  const handleClaimOrder = async (orderId: string) => {
+    if (!currentUser) return;
+    setUpdatingOrder(orderId);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          courierId: currentUser.courierId || currentUser.id,
+          status: "OUT_FOR_DELIVERY",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchOrders();
+        alert("🛵 تم استلام الطلب وتعيينه باسمك بنجاح!");
+      } else {
+        alert(data.error || "فشل استلام الطلب");
+      }
+    } catch {
+      alert("تعذر الاتصال بالخادم");
+    } finally {
+      setUpdatingOrder(null);
+    }
   };
 
+  // Update Status
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     setUpdatingOrder(orderId);
     try {
@@ -208,9 +302,18 @@ export default function DriverPage() {
       });
       const data = await res.json();
       if (data.success) {
+        const targetOrder = orders.find((o) => o.id === orderId);
+        const orderNum = targetOrder?.orderNumber;
+
         if (status === "DELIVERED") {
+          if (orderNum && activeGpsOrders[orderNum]) {
+            toggleGpsBroadcast(orderNum);
+          }
           setOrders((prev) => prev.filter((o) => o.id !== orderId));
         } else {
+          if (status === "OUT_FOR_DELIVERY" && orderNum && !activeGpsOrders[orderNum]) {
+            toggleGpsBroadcast(orderNum);
+          }
           setOrders((prev) =>
             prev.map((o) => (o.id === orderId ? { ...o, status } : o))
           );
@@ -243,24 +346,34 @@ export default function DriverPage() {
     );
   }
 
+  // Count & Filter logic
+  const isMine = (order: any) => {
+    if (!currentUser) return false;
+    if (currentUser.role === "owner" || currentUser.role === "manager") return true;
+    if (currentUser.courierId && order.courierId === currentUser.courierId) return true;
+    if (currentUser.phone && order.courier?.phone === currentUser.phone) return true;
+    return false;
+  };
+
+  const myOrders = orders.filter(isMine);
+  const displayedOrders = orderFilter === "mine" ? (myOrders.length > 0 ? myOrders : orders) : orders;
+
   const activeCount = orders.length;
   const inDeliveryCount = orders.filter((o) => o.status === "OUT_FOR_DELIVERY").length;
   const readyCount = orders.filter((o) => o.status === "READY").length;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans pb-10" dir="rtl">
-
-      {/* ===== COMPACT CLEAN HEADER (NO STORE NAVBAR) ===== */}
+      {/* ===== COMPACT CLEAN HEADER ===== */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-lg mx-auto px-3 py-2.5 flex items-center justify-between gap-2">
-
           {/* Brand & Driver Info */}
           <div className="flex items-center gap-2.5 shrink-0">
             <img src="/logo.png" alt="ألبان فينيسيا" className="h-8 w-auto object-contain" />
             <div>
               <p className="text-xs font-black text-slate-900 leading-none">بوابة كابتن الدليفري</p>
-              <p className="text-[10px] text-slate-500 font-bold leading-tight mt-0.5 truncate max-w-[120px]">
-                كابتن: {currentUser?.name || "الطيار"}
+              <p className="text-[10px] text-amber-700 font-bold leading-tight mt-0.5 truncate max-w-[140px]">
+                {currentUser?.name || "كابتن الدليفري"}
               </p>
             </div>
           </div>
@@ -303,7 +416,6 @@ export default function DriverPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-3 py-4 space-y-3">
-
         {/* Live Metrics Row */}
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-white border border-slate-200 rounded-2xl p-3 text-center shadow-xs">
@@ -320,6 +432,35 @@ export default function DriverPage() {
           </div>
         </div>
 
+        {/* Filter Switcher: My Assigned Orders vs All Orders */}
+        <div className="grid grid-cols-2 p-1.5 bg-slate-100 rounded-2xl text-xs font-black">
+          <button
+            type="button"
+            onClick={() => setOrderFilter("mine")}
+            className={`py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+              orderFilter === "mine"
+                ? "bg-white text-slate-950 shadow-xs border border-slate-200"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+            <span>طلباتي المسندة لي ({myOrders.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setOrderFilter("all")}
+            className={`py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+              orderFilter === "all"
+                ? "bg-white text-slate-950 shadow-xs border border-slate-200"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Package className="w-3.5 h-3.5 text-blue-500" />
+            <span>كل طلبات الدليفري ({activeCount})</span>
+          </button>
+        </div>
+
         {/* Live Refresh Timestamp */}
         <p className="text-[10px] text-slate-400 text-center">
           آخر تحديث: {lastRefresh.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
@@ -327,7 +468,7 @@ export default function DriverPage() {
         </p>
 
         {/* Active Orders List */}
-        {orders.length === 0 ? (
+        {displayedOrders.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center shadow-xs space-y-3">
             <Package className="w-12 h-12 text-slate-300 mx-auto" />
             <p className="text-sm font-black text-slate-700">لا توجد طلبات توصيل نشطة حالياً</p>
@@ -335,19 +476,59 @@ export default function DriverPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {orders.map((order) => {
+            {displayedOrders.map((order) => {
               const orderNum = order.orderNumber || order.id.slice(-6).toUpperCase();
               const isExpanded = expandedOrder === order.id;
               const isUpdating = updatingOrder === order.id;
               const address = order.deliveryAddress || order.customerAddress;
               const branchName = order.branch?.name || "فرع حدائق القبة (الرئيسي)";
+              const orderIsMine = isMine(order);
+              const hasNoCourier = !order.courierId;
 
               return (
-                <div key={order.id} className="bg-white border border-slate-200 rounded-3xl shadow-xs overflow-hidden">
+                <div
+                  key={order.id}
+                  className={`bg-white border rounded-3xl shadow-xs overflow-hidden transition ${
+                    orderIsMine
+                      ? "border-emerald-300 ring-2 ring-emerald-400/20"
+                      : "border-slate-200"
+                  }`}
+                >
+                  {/* Courier Assignment Banner */}
+                  {orderIsMine ? (
+                    <div className="bg-emerald-50 px-4 py-2 border-b border-emerald-200 flex items-center justify-between text-xs font-black text-emerald-900">
+                      <span className="flex items-center gap-1.5">
+                        <Star className="w-4 h-4 text-emerald-600 fill-emerald-600" />
+                        <span>مسند إليك شخصياً للتوصيل يا كابتن!</span>
+                      </span>
+                      <span className="text-[10px] bg-emerald-200/80 px-2 py-0.5 rounded-full font-mono font-bold">
+                        طلبك 🛵
+                      </span>
+                    </div>
+                  ) : hasNoCourier ? (
+                    <div className="bg-amber-50 px-4 py-2 border-b border-amber-200 flex items-center justify-between text-xs font-black text-amber-900">
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                        <span>لم يتم إسناده لطيار بعد</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleClaimOrder(order.id)}
+                        disabled={isUpdating}
+                        className="py-1 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black transition shadow-xs flex items-center gap-1"
+                      >
+                        <Truck className="w-3 h-3" />
+                        <span>استلام الأوردر 🛵</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 px-4 py-1.5 border-b border-slate-200 flex items-center justify-between text-[11px] font-bold text-slate-600">
+                      <span>مسند إلى: {order.courier?.name || "طيار آخر"}</span>
+                    </div>
+                  )}
 
                   {/* ORDER HEADER */}
                   <div className="p-4 space-y-3">
-
                     {/* Row 1: Order # + Status + Total */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -361,7 +542,7 @@ export default function DriverPage() {
                       </span>
                     </div>
 
-                    {/* Row 2: Branch Info (Dynamic - Not Hardcoded) */}
+                    {/* Row 2: Branch Info */}
                     <div className="flex items-center justify-between text-[11px] bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 text-slate-700">
                       <span className="flex items-center gap-1.5 font-bold">
                         <Store className="w-3.5 h-3.5 text-amber-600 shrink-0" />
@@ -439,12 +620,16 @@ export default function DriverPage() {
                       </a>
 
                       <button
-                        onClick={() => shareLiveLocation(order.customerPhone, orderNum)}
-                        className="py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 font-bold text-[10px] transition flex items-center justify-center gap-1 border border-sky-200"
-                        title="أرسل موقعك المباشر للعميل على واتساب"
+                        onClick={() => toggleGpsBroadcast(orderNum)}
+                        className={`py-2 rounded-xl font-bold text-[10px] transition flex items-center justify-center gap-1 border ${
+                          activeGpsOrders[orderNum]
+                            ? "bg-emerald-600 text-white border-emerald-700 animate-pulse"
+                            : "bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200"
+                        }`}
+                        title="بث موقع الـ GPS المباشر للعميل والمحل لحظياً"
                       >
-                        <Navigation2 className="w-3.5 h-3.5" />
-                        <span>إرسال موقعي</span>
+                        <Radio className="w-3.5 h-3.5" />
+                        <span>{activeGpsOrders[orderNum] ? "البث شغال 🟢" : "بث الـ GPS 📡"}</span>
                       </button>
                     </div>
 
@@ -508,8 +693,38 @@ export default function DriverPage() {
                       </div>
                     </div>
 
-                    {/* Row 7: OPEN LIVE COCKPIT & QR RECEIPT */}
-                    <div className="pt-1">
+                    {/* Row 7: LIVE MAP ACCORDION & DIGITAL COCKPIT */}
+                    <div className="pt-1 space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedMapOrderId(expandedMapOrderId === order.id ? null : order.id)}
+                        className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-400 font-black text-xs transition flex items-center justify-center gap-2 shadow-xs"
+                      >
+                        <MapPin className="w-4 h-4 text-amber-400" />
+                        <span>{expandedMapOrderId === order.id ? "إخفاء الخريطة الحية 🗺️" : "عرض خريطة التتبع المباشر 🗺️"}</span>
+                      </button>
+
+                      {expandedMapOrderId === order.id && (
+                        <div className="rounded-2xl overflow-hidden border border-slate-300">
+                          <LiveTrackingMap
+                            branch={
+                              order.branch?.name?.includes("مصر الجديدة") ||
+                              order.deliveryAddress?.includes("مصر الجديدة") ||
+                              order.deliveryAddress?.includes("جسر السويس")
+                                ? { name: "فرع مصر الجديدة", lat: 30.1057199, lng: 31.3212438 }
+                                : { name: "فرع حدائق القبة", lat: 30.0913819, lng: 31.2897613 }
+                            }
+                            courierLocation={
+                              myLocation ? { lat: myLocation.lat, lng: myLocation.lng, speed: 28 } : null
+                            }
+                            customerAddress={order.deliveryAddress}
+                            orderStatus={order.status}
+                            height="280px"
+                            onOpenExternalNavigation={() => openDirections(order.deliveryAddress)}
+                          />
+                        </div>
+                      )}
+
                       <a
                         href={`/track/${orderNum}?mode=courier`}
                         target="_blank"
@@ -517,7 +732,7 @@ export default function DriverPage() {
                         className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 shadow-sm"
                       >
                         <QrCode className="w-4 h-4" />
-                        <span>فتح غرفة التتبع والريسيت الإلكتروني وشات العميل 📱</span>
+                        <span>فتح شاشة التتبع والريسيت الإلكتروني وشات العميل 📱</span>
                         <ExternalLink className="w-3.5 h-3.5 opacity-70" />
                       </a>
                     </div>
@@ -580,7 +795,7 @@ export default function DriverPage() {
                     </button>
                   </div>
 
-                  {/* ORDER ITEMS (Safe Expandable) */}
+                  {/* ORDER ITEMS */}
                   {isExpanded && (() => {
                     let parsedItems: any[] = [];
                     try {

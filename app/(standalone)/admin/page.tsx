@@ -162,6 +162,7 @@ export default function AdminPage() {
 
   // Delivery Alarm State
   const [alarmOrder, setAlarmOrder] = useState<any>(null);
+  const [receiptModalOrder, setReceiptModalOrder] = useState<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const alarmIntervalRef = useRef<any>(null);
   const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -3440,6 +3441,91 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+    
+      {/* RECEIPT PREVIEW & PRINT MODAL */}
+      {receiptModalOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 font-sans no-print" dir="rtl">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-4 text-center shadow-2xl">
+            <button
+              onClick={() => setReceiptModalOrder(null)}
+              className="absolute left-4 top-4 w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center font-bold"
+            >
+              ✕
+            </button>
+
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto text-2xl font-bold shadow-md">
+              <Printer className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-xl font-black text-slate-900">إيصال تجهيز وتسليم الطلب</h3>
+              <p className="text-xs text-slate-500 font-mono font-bold">
+                طلب #{receiptModalOrder.orderNumber} • {receiptModalOrder.branch?.name || "ألبان فينيسيا"}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-right space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">اسم العميل:</span>
+                <span className="font-bold text-slate-800">{receiptModalOrder.customerName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">رقم الهاتف:</span>
+                <span className="font-mono font-bold text-slate-800">{receiptModalOrder.customerPhone}</span>
+              </div>
+              {receiptModalOrder.deliveryAddress && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">عنوان التوصيل:</span>
+                  <span className="font-bold text-slate-800 max-w-[65%] text-left">{receiptModalOrder.deliveryAddress}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-amber-200/60 pt-1 font-black">
+                <span className="text-slate-600">المبلغ الإجمالي:</span>
+                <span className="font-mono text-amber-800 text-sm">{receiptModalOrder.totalAmount} ج.م</span>
+              </div>
+            </div>
+
+            {/* Items Breakdown */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-right text-xs max-h-40 overflow-y-auto space-y-1">
+              <p className="font-bold text-slate-700 text-[11px] mb-1">الأصناف المطلوب تجهيزها:</p>
+              {(() => {
+                let itemsList = [];
+                try {
+                  itemsList = typeof receiptModalOrder.items === "string" ? JSON.parse(receiptModalOrder.items) : (receiptModalOrder.items || []);
+                } catch {
+                  itemsList = [];
+                }
+                return itemsList.map((it: any, idx: number) => (
+                  <div key={idx} className="flex justify-between text-[11px] border-b border-slate-100 pb-0.5">
+                    <span className="font-bold text-slate-800">
+                      {it.nameAr} <span className="text-[10px] text-slate-500">({it.unit} × {it.qty})</span>
+                    </span>
+                    <span className="font-mono font-bold text-slate-700">{it.total || it.price * it.qty} ج</span>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <button
+                onClick={() => window.print()}
+                className="w-full py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm transition flex items-center justify-center gap-2 shadow-md shadow-amber-500/20"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة الريسيت للمعمل والطيار 🖨️</span>
+              </button>
+
+              <button
+                onClick={() => setReceiptModalOrder(null)}
+                className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -155,25 +155,33 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 font-sans" dir="rtl">
-      {/* 1. HERO BANNER (Fresh Dairy Cream & Expressive Visual) */}
+      {/* 1. HERO BANNER */}
       <section className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/90 p-6 sm:p-10 shadow-xl shadow-slate-200/40">
         <div className="relative z-10 max-w-2xl space-y-4">
-          {/* Subtle Tagline Badge (Logo is only in top Navbar as requested) */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-50 via-sky-50 to-amber-50 border border-amber-300 text-slate-900 text-xs font-bold shadow-sm">
-            <span className="text-amber-500 font-bold">✨</span>
-            <span className="font-black text-slate-950">معمل ألبان فينيسيا الطبيعي</span>
-            <span className="text-slate-300">|</span>
-            <span className="text-rose-600 font-black">مش بس لبن وزبادي</span>
+          {/* Logo & Brand Display: ألبان + Logo + Slogan */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+              <span className="text-4xl sm:text-6xl font-black text-slate-950 tracking-tight">
+                ألبان
+              </span>
+              <div className="p-1.5 rounded-3xl bg-white border border-slate-200/90 shadow-md ring-4 ring-amber-400/30 flex items-center justify-center">
+                <img
+                  src="/logo.png"
+                  alt="فينيسيا"
+                  className="h-16 sm:h-20 md:h-24 w-auto object-contain"
+                />
+              </div>
+            </div>
+
+            {/* Slogan shifted slightly to the left under the logo */}
+            <div className="pr-6 sm:pr-10 pt-1">
+              <p className="text-base sm:text-xl font-black text-amber-700 flex items-center gap-2">
+                <span className="text-amber-500">✨</span>
+                <span>(مش بس لبن وزبادي)</span>
+                <span className="text-slate-400 text-xs sm:text-sm font-bold font-mono">🥛</span>
+              </p>
+            </div>
           </div>
-
-          <h1 className="text-3xl sm:text-5xl font-black text-slate-950 leading-tight">
-            خير المزارع الطبيعي <br />
-            <span className="gold-gradient-text">طازج فلاحي على أصوله</span>
-          </h1>
-
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            لبن جاموسي طازج كامل الدسم، أجبان فاخرة ومعتقة (رومي، كيري، شيدر، موتزريلا، براميلي)، حلويات مصنعة يدوياً بالمعمل يومياً (رز بلبن، مهلبية، أم علي، وقشطوطة فاخرة)، لحوم مصنعة ومبردات، وسمن وزبدة وقشطة مزارعنا الطبيعية 100%.
-          </p>
 
           {/* Fresh Milk Boiling Note */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-50/90 border border-amber-300 text-amber-900 text-xs font-bold shadow-sm">
@@ -181,17 +189,33 @@ export default function HomePage() {
             <span>تنبيه خير المزرعة: الرجاء غلي اللبن فوراً عند الاستلام!</span>
           </div>
 
-          {/* Branches Badges (Verified Official Bag Info) */}
+          {/* Branches Badges with Direct Google Maps Hyperlinks */}
           <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-            <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold flex items-center gap-1.5 shadow-sm">
-              <Store className="w-4 h-4 text-amber-600" />
+            <a
+              href="https://www.google.com/maps/place/30%C2%B006'20.6%22N+31%C2%B019'16.5%22E/@30.1057199,31.3186689,17z/data=!3m1!4b1!4m4!3m3!8m2!3d30.1057199!4d31.3212438?hl=en&entry=ttu&g_ep=EgoyMDI2MTEwMy4wIKXMDSoASAFQAw%3D%3D"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-400 text-slate-800 font-bold flex items-center gap-2 shadow-sm transition group"
+              title="افتح موقع فرع جسر السويس على خرائط Google"
+            >
+              <Store className="w-4 h-4 text-amber-600 group-hover:scale-110 transition shrink-0" />
               <span>الفرع الأول: 17 ش أحمد خليل من جسر السويس أمام سنترال مصر الجديدة</span>
-            </div>
-            <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold flex items-center gap-1.5 shadow-sm">
-              <Store className="w-4 h-4 text-sky-600" />
+              <span className="text-[10px] text-blue-600 underline font-mono shrink-0">📍 الخريطة</span>
+            </a>
+
+            <a
+              href="https://www.google.com/maps/place/30%C2%B005'29.0%22N+31%C2%B017'23.1%22E/@30.0913819,31.2871864,17z/data=!3m1!4b1!4m4!3m3!8m2!3d30.0913819!4d31.2897613?hl=en&entry=ttu&g_ep=EgoyMDI2MTEwMy4wIKXMDSoASAFQAw%3D%3D"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-400 text-slate-800 font-bold flex items-center gap-2 shadow-sm transition group"
+              title="افتح موقع فرع حدائق القبة على خرائط Google"
+            >
+              <Store className="w-4 h-4 text-sky-600 group-hover:scale-110 transition shrink-0" />
               <span>الفرع الثاني: 101 تقسيم الرقابة الإدارية ش المدينة المنورة - حدائق القبة</span>
-            </div>
-            <div className="px-2.5 py-1 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-bold text-[10px]">
+              <span className="text-[10px] text-blue-600 underline font-mono shrink-0">📍 الخريطة</span>
+            </a>
+
+            <div className="px-2.5 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-bold text-[10px] shrink-0">
               ليس لدينا فروع أخرى ⛔
             </div>
           </div>
@@ -212,16 +236,6 @@ export default function HomePage() {
               <QrCode className="w-4 h-4 text-amber-500" />
               <span>كارت الـ 2 QR (تطبيق أندرويد)</span>
             </button>
-
-            <a
-              href="https://share.google/UrPJjxJ0JpFBb4OHt"
-              target="_blank"
-              rel="noreferrer"
-              className="py-3 px-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs sm:text-sm transition flex items-center gap-1.5 shadow-sm"
-            >
-              <MapPin className="w-4 h-4 text-rose-500" />
-              <span>موقع الفرع بالخريطة</span>
-            </a>
           </div>
         </div>
 
@@ -230,7 +244,7 @@ export default function HomePage() {
           <div className="relative w-64 h-64 rounded-3xl overflow-hidden border-4 border-amber-200 shadow-2xl group ring-8 ring-sky-50">
             <img
               src="https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=700&q=80"
-              alt="خير المزارع الطبيعي وألبان فينيسيا"
+              alt="ألبان فينيسيا"
               className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
             />
             {/* Glass Overlay Tag */}
@@ -327,8 +341,18 @@ export default function HomePage() {
                       <img
                         src={prod.image}
                         alt={prod.nameAr}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
                         loading="lazy"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (target.src.includes("%")) {
+                            try {
+                              target.src = decodeURIComponent(target.src);
+                              return;
+                            } catch (_) {}
+                          }
+                          target.style.display = "none";
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-tr from-slate-50 to-amber-50">

@@ -5,24 +5,38 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "@/lib/cartContext";
 import CardQRModal from "@/components/CardQRModal";
+import CustomerAuthModal from "@/components/CustomerAuthModal";
 import {
   ShoppingBag,
   QrCode,
   ShieldCheck,
   Calculator,
   Sparkles,
+  User,
 } from "lucide-react";
 
 export default function Navbar({ settings }: { settings?: any }) {
   const pathname = usePathname();
   const { itemCount, setIsOpen } = useCart();
   const [showQrModal, setShowQrModal] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [staffUser, setStaffUser] = useState<any>(null);
+  const [customer, setCustomer] = useState<any>(null);
 
   React.useEffect(() => {
     try {
-      const saved = localStorage.getItem("vinissia_staff_user");
-      if (saved) setStaffUser(JSON.parse(saved));
+      const savedStaff = localStorage.getItem("vinissia_staff_user");
+      if (savedStaff) setStaffUser(JSON.parse(savedStaff));
+
+      const loadCustomer = () => {
+        try {
+          const savedCust = localStorage.getItem("vinissia_customer");
+          setCustomer(savedCust ? JSON.parse(savedCust) : null);
+        } catch {}
+      };
+      loadCustomer();
+      window.addEventListener("vinissia_customer_updated", loadCustomer);
+      return () => window.removeEventListener("vinissia_customer_updated", loadCustomer);
     } catch {}
   }, []);
 
@@ -42,12 +56,6 @@ export default function Navbar({ settings }: { settings?: any }) {
   return (
     <>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm" dir="rtl">
-        {/* Top Info Strip */}
-        <div className="bg-gradient-to-r from-amber-50 via-sky-50 to-amber-50 py-1.5 px-4 text-center text-[11px] font-bold text-slate-800 border-b border-amber-200/50 flex items-center justify-center gap-2">
-          <span className="text-amber-500 font-bold">✨</span>
-          <span>{settings?.announcement || "🥛 ألبان طازجة وارد المزرعة فجر اليوم — مش بس لبن وزبادي! زوروا فرعينا بحدائق القبة والوايلي"}</span>
-        </div>
-
         {/* Main Navbar */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
           {/* Logo & Brand: Venice Emblem */}
@@ -87,6 +95,30 @@ export default function Navbar({ settings }: { settings?: any }) {
               <QrCode className="w-4 h-4 text-amber-500" />
               <span className="hidden md:inline">كارت الـ 2 QR</span>
             </button>
+
+            {/* Customer Account Button */}
+            {customer ? (
+              <button
+                onClick={() => setShowCustomerModal(true)}
+                className="py-2 px-3 sm:px-3.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-xs font-black transition flex items-center gap-1.5 shadow-sm"
+                title={`حساب العميل: ${customer.name}`}
+              >
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                <User className="w-4 h-4 text-amber-600" />
+                <span className="hidden sm:inline">{customer.name?.split(" ")[0]}</span>
+                <span className="sm:hidden text-[11px]">{customer.name?.split(" ")[0]}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowCustomerModal(true)}
+                className="py-2 px-3 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                title="تسجيل دخول العميل أو إنشاء حساب جديد"
+              >
+                <User className="w-4 h-4 text-sky-600" />
+                <span className="hidden sm:inline">حسابي 🥛</span>
+                <span className="sm:hidden">حسابي</span>
+              </button>
+            )}
 
             {/* Staff & Management Access Button (Prominent in Header) */}
             {staffUser ? (
@@ -137,6 +169,12 @@ export default function Navbar({ settings }: { settings?: any }) {
         isOpen={showQrModal}
         onClose={() => setShowQrModal(false)}
         settings={settings}
+      />
+
+      {/* Customer Account & Auth Modal */}
+      <CustomerAuthModal
+        isOpen={showCustomerModal}
+        onClose={() => setShowCustomerModal(false)}
       />
     </>
   );

@@ -9201,6 +9201,8 @@ export namespace Prisma {
     name: string | null
     phone: string | null
     email: string | null
+    username: string | null
+    password: string | null
     address: string | null
     zone: string | null
     landmark: string | null
@@ -9219,6 +9221,8 @@ export namespace Prisma {
     name: string | null
     phone: string | null
     email: string | null
+    username: string | null
+    password: string | null
     address: string | null
     zone: string | null
     landmark: string | null
@@ -9237,6 +9241,8 @@ export namespace Prisma {
     name: number
     phone: number
     email: number
+    username: number
+    password: number
     address: number
     zone: number
     landmark: number
@@ -9267,6 +9273,8 @@ export namespace Prisma {
     name?: true
     phone?: true
     email?: true
+    username?: true
+    password?: true
     address?: true
     zone?: true
     landmark?: true
@@ -9285,6 +9293,8 @@ export namespace Prisma {
     name?: true
     phone?: true
     email?: true
+    username?: true
+    password?: true
     address?: true
     zone?: true
     landmark?: true
@@ -9303,6 +9313,8 @@ export namespace Prisma {
     name?: true
     phone?: true
     email?: true
+    username?: true
+    password?: true
     address?: true
     zone?: true
     landmark?: true
@@ -9408,6 +9420,8 @@ export namespace Prisma {
     name: string
     phone: string
     email: string | null
+    username: string | null
+    password: string | null
     address: string | null
     zone: string | null
     landmark: string | null
@@ -9445,6 +9459,8 @@ export namespace Prisma {
     name?: boolean
     phone?: boolean
     email?: boolean
+    username?: boolean
+    password?: boolean
     address?: boolean
     zone?: boolean
     landmark?: boolean
@@ -9465,6 +9481,8 @@ export namespace Prisma {
     name?: boolean
     phone?: boolean
     email?: boolean
+    username?: boolean
+    password?: boolean
     address?: boolean
     zone?: boolean
     landmark?: boolean
@@ -9483,6 +9501,8 @@ export namespace Prisma {
     name?: boolean
     phone?: boolean
     email?: boolean
+    username?: boolean
+    password?: boolean
     address?: boolean
     zone?: boolean
     landmark?: boolean
@@ -9501,6 +9521,8 @@ export namespace Prisma {
     name?: boolean
     phone?: boolean
     email?: boolean
+    username?: boolean
+    password?: boolean
     address?: boolean
     zone?: boolean
     landmark?: boolean
@@ -9514,7 +9536,7 @@ export namespace Prisma {
     createdAt?: boolean
   }
 
-  export type CustomerOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "phone" | "email" | "address" | "zone" | "landmark" | "notes" | "isVerified" | "verificationMethod" | "otpCode" | "otpExpires" | "totalOrders" | "totalSpent" | "createdAt", ExtArgs["result"]["customer"]>
+  export type CustomerOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "phone" | "email" | "username" | "password" | "address" | "zone" | "landmark" | "notes" | "isVerified" | "verificationMethod" | "otpCode" | "otpExpires" | "totalOrders" | "totalSpent" | "createdAt", ExtArgs["result"]["customer"]>
   export type CustomerInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     orders?: boolean | Customer$ordersArgs<ExtArgs>
     _count?: boolean | CustomerCountOutputTypeDefaultArgs<ExtArgs>
@@ -9532,6 +9554,8 @@ export namespace Prisma {
       name: string
       phone: string
       email: string | null
+      username: string | null
+      password: string | null
       address: string | null
       zone: string | null
       landmark: string | null
@@ -9971,6 +9995,8 @@ export namespace Prisma {
     readonly name: FieldRef<"Customer", 'String'>
     readonly phone: FieldRef<"Customer", 'String'>
     readonly email: FieldRef<"Customer", 'String'>
+    readonly username: FieldRef<"Customer", 'String'>
+    readonly password: FieldRef<"Customer", 'String'>
     readonly address: FieldRef<"Customer", 'String'>
     readonly zone: FieldRef<"Customer", 'String'>
     readonly landmark: FieldRef<"Customer", 'String'>
@@ -11834,6 +11860,8 @@ export namespace Prisma {
     name: string | null
     phone: string | null
     vehicleType: string | null
+    branchId: string | null
+    branchName: string | null
     isAvailable: boolean | null
     activeOrdersCount: number | null
     pendingCash: number | null
@@ -11845,6 +11873,8 @@ export namespace Prisma {
     name: string | null
     phone: string | null
     vehicleType: string | null
+    branchId: string | null
+    branchName: string | null
     isAvailable: boolean | null
     activeOrdersCount: number | null
     pendingCash: number | null
@@ -11856,6 +11886,8 @@ export namespace Prisma {
     name: number
     phone: number
     vehicleType: number
+    branchId: number
+    branchName: number
     isAvailable: number
     activeOrdersCount: number
     pendingCash: number
@@ -11879,6 +11911,8 @@ export namespace Prisma {
     name?: true
     phone?: true
     vehicleType?: true
+    branchId?: true
+    branchName?: true
     isAvailable?: true
     activeOrdersCount?: true
     pendingCash?: true
@@ -11890,6 +11924,8 @@ export namespace Prisma {
     name?: true
     phone?: true
     vehicleType?: true
+    branchId?: true
+    branchName?: true
     isAvailable?: true
     activeOrdersCount?: true
     pendingCash?: true
@@ -11901,6 +11937,8 @@ export namespace Prisma {
     name?: true
     phone?: true
     vehicleType?: true
+    branchId?: true
+    branchName?: true
     isAvailable?: true
     activeOrdersCount?: true
     pendingCash?: true
@@ -11999,6 +12037,8 @@ export namespace Prisma {
     name: string
     phone: string
     vehicleType: string | null
+    branchId: string | null
+    branchName: string | null
     isAvailable: boolean
     activeOrdersCount: number
     pendingCash: number
@@ -12029,6 +12069,8 @@ export namespace Prisma {
     name?: boolean
     phone?: boolean
     vehicleType?: boolean
+    branchId?: boolean
+    branchName?: boolean
     isAvailable?: boolean
     activeOrdersCount?: boolean
     pendingCash?: boolean
@@ -12042,6 +12084,8 @@ export namespace Prisma {
     name?: boolean
     phone?: boolean
     vehicleType?: boolean
+    branchId?: boolean
+    branchName?: boolean
     isAvailable?: boolean
     activeOrdersCount?: boolean
     pendingCash?: boolean
@@ -12053,6 +12097,8 @@ export namespace Prisma {
     name?: boolean
     phone?: boolean
     vehicleType?: boolean
+    branchId?: boolean
+    branchName?: boolean
     isAvailable?: boolean
     activeOrdersCount?: boolean
     pendingCash?: boolean
@@ -12064,13 +12110,15 @@ export namespace Prisma {
     name?: boolean
     phone?: boolean
     vehicleType?: boolean
+    branchId?: boolean
+    branchName?: boolean
     isAvailable?: boolean
     activeOrdersCount?: boolean
     pendingCash?: boolean
     createdAt?: boolean
   }
 
-  export type CourierOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "phone" | "vehicleType" | "isAvailable" | "activeOrdersCount" | "pendingCash" | "createdAt", ExtArgs["result"]["courier"]>
+  export type CourierOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "phone" | "vehicleType" | "branchId" | "branchName" | "isAvailable" | "activeOrdersCount" | "pendingCash" | "createdAt", ExtArgs["result"]["courier"]>
   export type CourierInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     orders?: boolean | Courier$ordersArgs<ExtArgs>
     _count?: boolean | CourierCountOutputTypeDefaultArgs<ExtArgs>
@@ -12088,6 +12136,8 @@ export namespace Prisma {
       name: string
       phone: string
       vehicleType: string | null
+      branchId: string | null
+      branchName: string | null
       isAvailable: boolean
       activeOrdersCount: number
       pendingCash: number
@@ -12520,6 +12570,8 @@ export namespace Prisma {
     readonly name: FieldRef<"Courier", 'String'>
     readonly phone: FieldRef<"Courier", 'String'>
     readonly vehicleType: FieldRef<"Courier", 'String'>
+    readonly branchId: FieldRef<"Courier", 'String'>
+    readonly branchName: FieldRef<"Courier", 'String'>
     readonly isAvailable: FieldRef<"Courier", 'Boolean'>
     readonly activeOrdersCount: FieldRef<"Courier", 'Int'>
     readonly pendingCash: FieldRef<"Courier", 'Float'>
@@ -15451,6 +15503,8 @@ export namespace Prisma {
     name: 'name',
     phone: 'phone',
     email: 'email',
+    username: 'username',
+    password: 'password',
     address: 'address',
     zone: 'zone',
     landmark: 'landmark',
@@ -15499,6 +15553,8 @@ export namespace Prisma {
     name: 'name',
     phone: 'phone',
     vehicleType: 'vehicleType',
+    branchId: 'branchId',
+    branchName: 'branchName',
     isAvailable: 'isAvailable',
     activeOrdersCount: 'activeOrdersCount',
     pendingCash: 'pendingCash',
@@ -16205,6 +16261,8 @@ export namespace Prisma {
     name?: StringFilter<"Customer"> | string
     phone?: StringFilter<"Customer"> | string
     email?: StringNullableFilter<"Customer"> | string | null
+    username?: StringNullableFilter<"Customer"> | string | null
+    password?: StringNullableFilter<"Customer"> | string | null
     address?: StringNullableFilter<"Customer"> | string | null
     zone?: StringNullableFilter<"Customer"> | string | null
     landmark?: StringNullableFilter<"Customer"> | string | null
@@ -16224,6 +16282,8 @@ export namespace Prisma {
     name?: SortOrder
     phone?: SortOrder
     email?: SortOrderInput | SortOrder
+    username?: SortOrderInput | SortOrder
+    password?: SortOrderInput | SortOrder
     address?: SortOrderInput | SortOrder
     zone?: SortOrderInput | SortOrder
     landmark?: SortOrderInput | SortOrder
@@ -16241,11 +16301,13 @@ export namespace Prisma {
   export type CustomerWhereUniqueInput = Prisma.AtLeast<{
     id?: string
     phone?: string
+    username?: string
     AND?: CustomerWhereInput | CustomerWhereInput[]
     OR?: CustomerWhereInput[]
     NOT?: CustomerWhereInput | CustomerWhereInput[]
     name?: StringFilter<"Customer"> | string
     email?: StringNullableFilter<"Customer"> | string | null
+    password?: StringNullableFilter<"Customer"> | string | null
     address?: StringNullableFilter<"Customer"> | string | null
     zone?: StringNullableFilter<"Customer"> | string | null
     landmark?: StringNullableFilter<"Customer"> | string | null
@@ -16258,13 +16320,15 @@ export namespace Prisma {
     totalSpent?: FloatFilter<"Customer"> | number
     createdAt?: DateTimeFilter<"Customer"> | Date | string
     orders?: OrderListRelationFilter
-  }, "id" | "phone">
+  }, "id" | "phone" | "username">
 
   export type CustomerOrderByWithAggregationInput = {
     id?: SortOrder
     name?: SortOrder
     phone?: SortOrder
     email?: SortOrderInput | SortOrder
+    username?: SortOrderInput | SortOrder
+    password?: SortOrderInput | SortOrder
     address?: SortOrderInput | SortOrder
     zone?: SortOrderInput | SortOrder
     landmark?: SortOrderInput | SortOrder
@@ -16291,6 +16355,8 @@ export namespace Prisma {
     name?: StringWithAggregatesFilter<"Customer"> | string
     phone?: StringWithAggregatesFilter<"Customer"> | string
     email?: StringNullableWithAggregatesFilter<"Customer"> | string | null
+    username?: StringNullableWithAggregatesFilter<"Customer"> | string | null
+    password?: StringNullableWithAggregatesFilter<"Customer"> | string | null
     address?: StringNullableWithAggregatesFilter<"Customer"> | string | null
     zone?: StringNullableWithAggregatesFilter<"Customer"> | string | null
     landmark?: StringNullableWithAggregatesFilter<"Customer"> | string | null
@@ -16455,6 +16521,8 @@ export namespace Prisma {
     name?: StringFilter<"Courier"> | string
     phone?: StringFilter<"Courier"> | string
     vehicleType?: StringNullableFilter<"Courier"> | string | null
+    branchId?: StringNullableFilter<"Courier"> | string | null
+    branchName?: StringNullableFilter<"Courier"> | string | null
     isAvailable?: BoolFilter<"Courier"> | boolean
     activeOrdersCount?: IntFilter<"Courier"> | number
     pendingCash?: FloatFilter<"Courier"> | number
@@ -16467,6 +16535,8 @@ export namespace Prisma {
     name?: SortOrder
     phone?: SortOrder
     vehicleType?: SortOrderInput | SortOrder
+    branchId?: SortOrderInput | SortOrder
+    branchName?: SortOrderInput | SortOrder
     isAvailable?: SortOrder
     activeOrdersCount?: SortOrder
     pendingCash?: SortOrder
@@ -16482,6 +16552,8 @@ export namespace Prisma {
     NOT?: CourierWhereInput | CourierWhereInput[]
     name?: StringFilter<"Courier"> | string
     vehicleType?: StringNullableFilter<"Courier"> | string | null
+    branchId?: StringNullableFilter<"Courier"> | string | null
+    branchName?: StringNullableFilter<"Courier"> | string | null
     isAvailable?: BoolFilter<"Courier"> | boolean
     activeOrdersCount?: IntFilter<"Courier"> | number
     pendingCash?: FloatFilter<"Courier"> | number
@@ -16494,6 +16566,8 @@ export namespace Prisma {
     name?: SortOrder
     phone?: SortOrder
     vehicleType?: SortOrderInput | SortOrder
+    branchId?: SortOrderInput | SortOrder
+    branchName?: SortOrderInput | SortOrder
     isAvailable?: SortOrder
     activeOrdersCount?: SortOrder
     pendingCash?: SortOrder
@@ -16513,6 +16587,8 @@ export namespace Prisma {
     name?: StringWithAggregatesFilter<"Courier"> | string
     phone?: StringWithAggregatesFilter<"Courier"> | string
     vehicleType?: StringNullableWithAggregatesFilter<"Courier"> | string | null
+    branchId?: StringNullableWithAggregatesFilter<"Courier"> | string | null
+    branchName?: StringNullableWithAggregatesFilter<"Courier"> | string | null
     isAvailable?: BoolWithAggregatesFilter<"Courier"> | boolean
     activeOrdersCount?: IntWithAggregatesFilter<"Courier"> | number
     pendingCash?: FloatWithAggregatesFilter<"Courier"> | number
@@ -17358,6 +17434,8 @@ export namespace Prisma {
     name: string
     phone: string
     email?: string | null
+    username?: string | null
+    password?: string | null
     address?: string | null
     zone?: string | null
     landmark?: string | null
@@ -17377,6 +17455,8 @@ export namespace Prisma {
     name: string
     phone: string
     email?: string | null
+    username?: string | null
+    password?: string | null
     address?: string | null
     zone?: string | null
     landmark?: string | null
@@ -17396,6 +17476,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
     address?: NullableStringFieldUpdateOperationsInput | string | null
     zone?: NullableStringFieldUpdateOperationsInput | string | null
     landmark?: NullableStringFieldUpdateOperationsInput | string | null
@@ -17415,6 +17497,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
     address?: NullableStringFieldUpdateOperationsInput | string | null
     zone?: NullableStringFieldUpdateOperationsInput | string | null
     landmark?: NullableStringFieldUpdateOperationsInput | string | null
@@ -17434,6 +17518,8 @@ export namespace Prisma {
     name: string
     phone: string
     email?: string | null
+    username?: string | null
+    password?: string | null
     address?: string | null
     zone?: string | null
     landmark?: string | null
@@ -17452,6 +17538,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
     address?: NullableStringFieldUpdateOperationsInput | string | null
     zone?: NullableStringFieldUpdateOperationsInput | string | null
     landmark?: NullableStringFieldUpdateOperationsInput | string | null
@@ -17470,6 +17558,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
     address?: NullableStringFieldUpdateOperationsInput | string | null
     zone?: NullableStringFieldUpdateOperationsInput | string | null
     landmark?: NullableStringFieldUpdateOperationsInput | string | null
@@ -17653,6 +17743,8 @@ export namespace Prisma {
     name: string
     phone: string
     vehicleType?: string | null
+    branchId?: string | null
+    branchName?: string | null
     isAvailable?: boolean
     activeOrdersCount?: number
     pendingCash?: number
@@ -17665,6 +17757,8 @@ export namespace Prisma {
     name: string
     phone: string
     vehicleType?: string | null
+    branchId?: string | null
+    branchName?: string | null
     isAvailable?: boolean
     activeOrdersCount?: number
     pendingCash?: number
@@ -17677,6 +17771,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     vehicleType?: NullableStringFieldUpdateOperationsInput | string | null
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    branchName?: NullableStringFieldUpdateOperationsInput | string | null
     isAvailable?: BoolFieldUpdateOperationsInput | boolean
     activeOrdersCount?: IntFieldUpdateOperationsInput | number
     pendingCash?: FloatFieldUpdateOperationsInput | number
@@ -17689,6 +17785,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     vehicleType?: NullableStringFieldUpdateOperationsInput | string | null
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    branchName?: NullableStringFieldUpdateOperationsInput | string | null
     isAvailable?: BoolFieldUpdateOperationsInput | boolean
     activeOrdersCount?: IntFieldUpdateOperationsInput | number
     pendingCash?: FloatFieldUpdateOperationsInput | number
@@ -17701,6 +17799,8 @@ export namespace Prisma {
     name: string
     phone: string
     vehicleType?: string | null
+    branchId?: string | null
+    branchName?: string | null
     isAvailable?: boolean
     activeOrdersCount?: number
     pendingCash?: number
@@ -17712,6 +17812,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     vehicleType?: NullableStringFieldUpdateOperationsInput | string | null
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    branchName?: NullableStringFieldUpdateOperationsInput | string | null
     isAvailable?: BoolFieldUpdateOperationsInput | boolean
     activeOrdersCount?: IntFieldUpdateOperationsInput | number
     pendingCash?: FloatFieldUpdateOperationsInput | number
@@ -17723,6 +17825,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     vehicleType?: NullableStringFieldUpdateOperationsInput | string | null
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    branchName?: NullableStringFieldUpdateOperationsInput | string | null
     isAvailable?: BoolFieldUpdateOperationsInput | boolean
     activeOrdersCount?: IntFieldUpdateOperationsInput | number
     pendingCash?: FloatFieldUpdateOperationsInput | number
@@ -18566,6 +18670,8 @@ export namespace Prisma {
     name?: SortOrder
     phone?: SortOrder
     email?: SortOrder
+    username?: SortOrder
+    password?: SortOrder
     address?: SortOrder
     zone?: SortOrder
     landmark?: SortOrder
@@ -18589,6 +18695,8 @@ export namespace Prisma {
     name?: SortOrder
     phone?: SortOrder
     email?: SortOrder
+    username?: SortOrder
+    password?: SortOrder
     address?: SortOrder
     zone?: SortOrder
     landmark?: SortOrder
@@ -18607,6 +18715,8 @@ export namespace Prisma {
     name?: SortOrder
     phone?: SortOrder
     email?: SortOrder
+    username?: SortOrder
+    password?: SortOrder
     address?: SortOrder
     zone?: SortOrder
     landmark?: SortOrder
@@ -18726,6 +18836,8 @@ export namespace Prisma {
     name?: SortOrder
     phone?: SortOrder
     vehicleType?: SortOrder
+    branchId?: SortOrder
+    branchName?: SortOrder
     isAvailable?: SortOrder
     activeOrdersCount?: SortOrder
     pendingCash?: SortOrder
@@ -18742,6 +18854,8 @@ export namespace Prisma {
     name?: SortOrder
     phone?: SortOrder
     vehicleType?: SortOrder
+    branchId?: SortOrder
+    branchName?: SortOrder
     isAvailable?: SortOrder
     activeOrdersCount?: SortOrder
     pendingCash?: SortOrder
@@ -18753,6 +18867,8 @@ export namespace Prisma {
     name?: SortOrder
     phone?: SortOrder
     vehicleType?: SortOrder
+    branchId?: SortOrder
+    branchName?: SortOrder
     isAvailable?: SortOrder
     activeOrdersCount?: SortOrder
     pendingCash?: SortOrder
@@ -20490,6 +20606,8 @@ export namespace Prisma {
     name: string
     phone: string
     email?: string | null
+    username?: string | null
+    password?: string | null
     address?: string | null
     zone?: string | null
     landmark?: string | null
@@ -20508,6 +20626,8 @@ export namespace Prisma {
     name: string
     phone: string
     email?: string | null
+    username?: string | null
+    password?: string | null
     address?: string | null
     zone?: string | null
     landmark?: string | null
@@ -20531,6 +20651,8 @@ export namespace Prisma {
     name: string
     phone: string
     vehicleType?: string | null
+    branchId?: string | null
+    branchName?: string | null
     isAvailable?: boolean
     activeOrdersCount?: number
     pendingCash?: number
@@ -20542,6 +20664,8 @@ export namespace Prisma {
     name: string
     phone: string
     vehicleType?: string | null
+    branchId?: string | null
+    branchName?: string | null
     isAvailable?: boolean
     activeOrdersCount?: number
     pendingCash?: number
@@ -20608,6 +20732,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
     address?: NullableStringFieldUpdateOperationsInput | string | null
     zone?: NullableStringFieldUpdateOperationsInput | string | null
     landmark?: NullableStringFieldUpdateOperationsInput | string | null
@@ -20626,6 +20752,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    username?: NullableStringFieldUpdateOperationsInput | string | null
+    password?: NullableStringFieldUpdateOperationsInput | string | null
     address?: NullableStringFieldUpdateOperationsInput | string | null
     zone?: NullableStringFieldUpdateOperationsInput | string | null
     landmark?: NullableStringFieldUpdateOperationsInput | string | null
@@ -20655,6 +20783,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     vehicleType?: NullableStringFieldUpdateOperationsInput | string | null
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    branchName?: NullableStringFieldUpdateOperationsInput | string | null
     isAvailable?: BoolFieldUpdateOperationsInput | boolean
     activeOrdersCount?: IntFieldUpdateOperationsInput | number
     pendingCash?: FloatFieldUpdateOperationsInput | number
@@ -20666,6 +20796,8 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
     vehicleType?: NullableStringFieldUpdateOperationsInput | string | null
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    branchName?: NullableStringFieldUpdateOperationsInput | string | null
     isAvailable?: BoolFieldUpdateOperationsInput | boolean
     activeOrdersCount?: IntFieldUpdateOperationsInput | number
     pendingCash?: FloatFieldUpdateOperationsInput | number

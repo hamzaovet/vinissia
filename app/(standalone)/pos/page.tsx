@@ -28,6 +28,8 @@ import {
   Send,
   Save,
   Sparkles,
+  CheckCircle2,
+  ExternalLink,
 } from "lucide-react";
 
 interface Product {
@@ -186,12 +188,67 @@ export default function PosPage() {
     } catch {}
   };
 
-  const stopAlarmSound = () => {
+  const stopAlarmSound = (orderIdToMute?: string) => {
     stopContinuousAlarm();
-    if (alarmOrder) {
-      lastAcknowledgedOrderId.current = alarmOrder.id;
+    const id = orderIdToMute || alarmOrder?.id;
+    if (id) {
+      lastAcknowledgedOrderId.current = id;
+      try {
+        const saved = JSON.parse(localStorage.getItem("vinissia_muted_orders") || "[]");
+        if (!saved.includes(id)) {
+          saved.push(id);
+          localStorage.setItem("vinissia_muted_orders", JSON.stringify(saved.slice(-50)));
+        }
+      } catch {}
     }
     setAlarmOrder(null);
+  };
+
+  // Accept incoming delivery order -> update status to PREPARING -> show printable receipt immediately!
+  const handleAcceptDeliveryOrder = async (orderToAccept: any) => {
+    if (!orderToAccept) return;
+    stopAlarmSound(orderToAccept.id);
+
+    try {
+      const res = await fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: orderToAccept.id,
+          status: "PREPARING",
+        }),
+      });
+      const data = await res.json();
+      const updatedOrder = data.success && data.order ? data.order : orderToAccept;
+
+      let parsedItems = [];
+      try {
+        parsedItems =
+          typeof updatedOrder.items === "string"
+            ? JSON.parse(updatedOrder.items)
+            : updatedOrder.items;
+      } catch {
+        parsedItems = [];
+      }
+
+      const receiptOrder = {
+        ...updatedOrder,
+        savedCart: parsedItems,
+        branchName:
+          updatedOrder.branch?.name ||
+          (selectedBranchId ? branches.find((b) => b.id === selectedBranchId)?.name : "ألبان فينيسيا"),
+        branchAddress: updatedOrder.branch?.address || "حدائق القبة — جسر السويس",
+        branchPhone: updatedOrder.branch?.phone || "01118400150",
+        cashierName: staff?.name || "كاشير فينيسيا",
+      };
+
+      setLastOrder(receiptOrder);
+      setShowCompletedModal(true);
+    } catch (err) {
+      console.error("Error accepting delivery order:", err);
+      setLastOrder(orderToAccept);
+      setShowCompletedModal(true);
+    }
   };
 
   // Polling for incoming delivery orders
@@ -202,14 +259,19 @@ export default function PosPage() {
         const data = await res.json();
         if (data.success && data.orders && data.orders.length > 0) {
           const newest = data.orders[0];
-          // Check if this is for the current branch (or if all branches)
           const isTargetBranch =
             !selectedBranchId ||
             selectedBranchId === "ALL" ||
             !newest.branchId ||
             newest.branchId === selectedBranchId;
 
-          if (isTargetBranch && newest.id !== lastAcknowledgedOrderId.current && !alarmOrder) {
+          let isMuted = false;
+          try {
+            const saved = JSON.parse(localStorage.getItem("vinissia_muted_orders") || "[]");
+            if (saved.includes(newest.id)) isMuted = true;
+          } catch {}
+
+          if (isTargetBranch && newest.id !== lastAcknowledgedOrderId.current && !isMuted && !alarmOrder) {
             setAlarmOrder(newest);
             startAlarmSound();
           }
@@ -631,24 +693,44 @@ ${itemsText}
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans select-none">
       {/* DELIVERY AUDIO ALARM BANNER */}
       {alarmOrder && (
-        <div className="bg-rose-600 text-white px-4 py-2.5 flex items-center justify-between shadow-lg z-50 animate-pulse no-print" dir="rtl">
-          <div className="flex items-center gap-2.5 font-bold text-xs sm:text-sm">
-            <BellRing className="w-5 h-5 animate-bounce" />
-            <span>
-              🚨 جرس تنبيه: أوردر دليفري جديد وارد الآن! رقم #{alarmOrder.orderNumber} للعميل ({alarmOrder.customerName}) بمبلغ {alarmOrder.totalAmount} ج.م
-            </span>
+        <div className="bg-rose-600 text-white px-4 py-3 flex flex-wrap items-center justify-between shadow-2xl z-50 animate-pulse no-print gap-3 border-b-2 border-white/30" dir="rtl">
+          <div className="flex items-center gap-3 font-bold text-xs sm:text-sm">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <BellRing className="w-5 h-5 text-white animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-amber-300">🚨 أوردر دليفري جديد وارد الآن!</span>
+                <span className="font-mono bg-white text-rose-900 px-2 py-0.5 rounded-full text-xs font-black">
+                  #{alarmOrder.orderNumber}
+                </span>
+              </div>
+              <p className="text-[11px] text-white/90 font-normal">
+                العميل: <strong className="font-bold">{alarmOrder.customerName}</strong> ({alarmOrder.customerPhone}) • العنوان: {alarmOrder.deliveryAddress || "حدائق القبة"} • الإجمالي: <strong className="font-mono font-bold text-amber-200">{alarmOrder.totalAmount} ج.م</strong>
+              </p>
+            </div>
           </div>
+
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleAcceptDeliveryOrder(alarmOrder)}
+              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition shadow-lg flex items-center gap-1.5"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>قبول وطباعة الريسيت 🖨️</span>
+            </button>
+
             <Link
               href="/admin?tab=orders"
-              onClick={stopAlarmSound}
-              className="px-3 py-1 rounded-xl bg-white text-rose-700 font-black text-xs hover:bg-slate-100 transition shadow-sm"
+              onClick={() => stopAlarmSound(alarmOrder.id)}
+              className="px-3 py-2 rounded-xl bg-white text-rose-700 font-bold text-xs hover:bg-slate-100 transition shadow-sm"
             >
               عرض في الإدارة
             </Link>
+
             <button
-              onClick={stopAlarmSound}
-              className="px-3 py-1 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs transition border border-white/20"
+              onClick={() => stopAlarmSound(alarmOrder.id)}
+              className="px-3 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs transition border border-white/20"
             >
               كتم التنبيه 🔇
             </button>
@@ -1042,51 +1124,89 @@ ${itemsText}
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-xl font-black text-slate-900">تم تسجيل الفاتورة بنجاح!</h3>
+              <h3 className="text-xl font-black text-slate-900">
+                {lastOrder.orderType === "delivery"
+                  ? "🛵 أوردر دليفري قيد التجهيز بالمعمل!"
+                  : "تم تسجيل الفاتورة بنجاح!"}
+              </h3>
               <p className="text-xs text-slate-500 font-mono font-bold">
-                فاتورة رقم #{lastOrder.orderNumber} • {lastOrder.branchName}
+                طلب رقم #{lastOrder.orderNumber} • {lastOrder.branchName || "ألبان فينيسيا"}
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-right space-y-1 text-xs">
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-right space-y-1.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">اسم العميل:</span>
                 <span className="font-bold text-slate-800">{lastOrder.customerName}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-slate-500">رقم الموبايل:</span>
+                <span className="font-mono font-bold text-slate-800">{lastOrder.customerPhone}</span>
+              </div>
+              {lastOrder.deliveryAddress && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">عنوان التوصيل:</span>
+                  <span className="font-bold text-slate-800 max-w-[65%] text-left">{lastOrder.deliveryAddress}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-amber-200/60 pt-1">
                 <span className="text-slate-500">الإجمالي النهائي:</span>
                 <span className="font-mono font-black text-amber-700 text-sm">{lastOrder.totalAmount} ج.م</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">طريقة الدفع:</span>
-                <span className="font-bold text-slate-800">{lastOrder.paymentMethod === "cash" ? "نقدي (كاش)" : lastOrder.paymentMethod}</span>
-              </div>
+            </div>
+
+            {/* List of items for kitchen preparation */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-right text-xs max-h-36 overflow-y-auto space-y-1">
+              <p className="font-bold text-slate-700 text-[11px] mb-1">الأصناف المطلوب تجهيزها بالمعمل:</p>
+              {(() => {
+                const itemsList = lastOrder.savedCart || [];
+                return itemsList.map((it: any, idx: number) => (
+                  <div key={idx} className="flex justify-between text-[11px] border-b border-slate-100 pb-0.5">
+                    <span className="font-bold text-slate-800">
+                      {it.nameAr} <span className="text-[10px] text-slate-500">({it.unit} × {it.qty})</span>
+                    </span>
+                    <span className="font-mono font-bold text-slate-700">{it.total || it.price * it.qty} ج</span>
+                  </div>
+                ));
+              })()}
             </div>
 
             {/* Actions: Send WhatsApp, Re-print, New Customer */}
-            <div className="space-y-2 pt-2">
+            <div className="space-y-2 pt-1">
+              <button
+                onClick={() => window.print()}
+                className="w-full py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm transition flex items-center justify-center gap-2 shadow-md shadow-amber-500/20"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة ريسيت التجهيز للطيار 🖨️</span>
+              </button>
+
               <button
                 onClick={handleSendWhatsAppInvoice}
-                className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-sm"
+                className="w-full py-2.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition flex items-center justify-center gap-2 shadow-sm"
               >
                 <Send className="w-4 h-4" />
                 <span>إرسال الفاتورة للعميل على واتساب 📲</span>
               </button>
 
-              <button
-                onClick={() => window.print()}
-                className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition flex items-center justify-center gap-2 border border-slate-200"
-              >
-                <Printer className="w-4 h-4 text-amber-600" />
-                <span>إعادة طباعة الإيصال الحراري</span>
-              </button>
+              {lastOrder.orderType === "delivery" && (
+                <button
+                  onClick={() => {
+                    setShowCompletedModal(false);
+                    window.open(`/track/${lastOrder.orderNumber}`, "_blank");
+                  }}
+                  className="w-full py-2 px-4 rounded-2xl bg-sky-50 hover:bg-sky-100 text-sky-800 font-bold text-xs transition flex items-center justify-center gap-2 border border-sky-200"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>فتح شاشة التتبع والطيار 🛵</span>
+                </button>
+              )}
 
               <button
                 onClick={startNewTransaction}
-                className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm transition flex items-center justify-center gap-2 shadow-md shadow-amber-500/20"
+                className="w-full py-2 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
               >
-                <Sparkles className="w-4 h-4" />
-                <span>معاملة جديدة (عميل جديد) ✨</span>
+                إغلاق والعودة لنقاط البيع
               </button>
             </div>
           </div>
@@ -1218,10 +1338,19 @@ ${itemsText}
             <p className="text-[10px] font-bold">مش بس لبن وزبادي</p>
             <p className="text-[10px]">{lastOrder.branchName || "فرع حدائق القبة (الرئيسي)"}</p>
             <p className="text-[9px]">{lastOrder.branchAddress || "80 المدينة المنورة — حدائق القبة"}</p>
-            <p className="text-[9px]">هاتف: {lastOrder.branchPhone || "0224382540"}</p>
-            <p className="text-xs font-bold pt-1">فاتورة مبيعات #{lastOrder.orderNumber}</p>
+            <p className="text-[9px]">هاتف: {lastOrder.branchPhone || "01118400150"}</p>
+            <p className="text-xs font-bold pt-1">
+              {lastOrder.orderType === "delivery" ? "إيصال تجهيز وتوصيل دليفري 🛵" : "فاتورة مبيعات صالة"} #{lastOrder.orderNumber}
+            </p>
             <p className="text-[9px]">{new Date().toLocaleString("ar-EG")}</p>
           </div>
+
+          {lastOrder.orderType === "delivery" && (
+            <div className="py-1.5 border-b border-black text-[10px] space-y-0.5">
+              <p><span className="font-bold">العميل:</span> {lastOrder.customerName} ({lastOrder.customerPhone})</p>
+              <p><span className="font-bold">العنوان:</span> {lastOrder.deliveryAddress || "حدائق القبة"}</p>
+            </div>
+          )}
 
           <div className="py-2 space-y-1 border-b border-black">
             {(() => {

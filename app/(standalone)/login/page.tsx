@@ -10,6 +10,10 @@ import {
   KeyRound,
   ArrowRight,
   AlertCircle,
+  Truck,
+  Crown,
+  Calculator,
+  Store,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -20,6 +24,13 @@ export default function LoginPage() {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const fillCredentials = (u: string, p: string, pinCode: string) => {
+    setUsername(u);
+    setPassword(p);
+    setPin(pinCode);
+    setError("");
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +80,7 @@ export default function LoginPage() {
       className="min-h-screen bg-[#f8fafc] flex flex-col justify-center items-center p-4 font-sans selection:bg-amber-100"
       dir="rtl"
     >
-      <div className="w-full max-w-md space-y-6">
+      <div className="w-full max-w-lg space-y-6">
         {/* Real Brand Logo Emblem */}
         <div className="text-center space-y-3">
           <Link href="/" className="inline-block group transition transform hover:scale-[1.02]">
@@ -84,15 +95,15 @@ export default function LoginPage() {
 
           <div>
             <h2 className="text-xl font-black text-slate-900">
-              بوابة تسجيل دخول الطاقم والإدارة
+              بوابة تسجيل دخول الطاقم والإدارة والطيارين
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              صلاحيات المالك (المايسترو)، مدير الفروع، وكاشير الصالة
+              صلاحيات المالك (المايسترو)، مدير الفروع، كاشير الصالة، وأسطول الدليفري
             </p>
           </div>
         </div>
 
-        {/* Login Form Card (Fresh Milk Theme) */}
+        {/* Login Form Card */}
         <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl shadow-slate-200/50">
           {error && (
             <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
@@ -172,7 +183,138 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Quick Credential Autofill Helper for Authorized Staff - REMOVED FOR SECURITY */}
+          {/* Quick Credential Autofill Helper for Authorized Staff */}
+          <div className="pt-4 border-t border-slate-200 space-y-3">
+            <div className="text-center">
+              <p className="text-[11px] font-black text-slate-700">
+                حسابات الدخول المعتمدة (انقر لتعبئة البيانات تلقائياً):
+              </p>
+            </div>
+
+            {/* 1. Admin & Owner */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 block pr-1">👑 الإدارة والمالك</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => fillCredentials("maestro", "123", "157230")}
+                  className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-right transition flex flex-col justify-center"
+                >
+                  <span className="font-black text-[11px] text-amber-950 flex items-center gap-1">
+                    <Crown className="w-3 h-3 text-amber-600" />
+                    <span>المالك (المايسترو)</span>
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-mono mt-0.5">maestro / 157230</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fillCredentials("manager", "123", "112233")}
+                  className="p-2.5 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-300 text-right transition flex flex-col justify-center"
+                >
+                  <span className="font-black text-[11px] text-sky-950 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-sky-600" />
+                    <span>المدير العام</span>
+                  </span>
+                  <span className="text-[10px] text-sky-700 font-mono mt-0.5">manager / 112233</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Cashiers */}
+            <div className="space-y-1 pt-1">
+              <span className="text-[10px] font-bold text-slate-400 block pr-1">📟 كاشير الفروع</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => fillCredentials("cashier_heliopolis", "123", "223344")}
+                  className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-300 text-right transition flex flex-col justify-center"
+                >
+                  <span className="font-black text-[11px] text-slate-900 flex items-center gap-1">
+                    <Store className="w-3 h-3 text-slate-600" />
+                    <span>كاشير مصر الجديدة</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono mt-0.5">cashier_heliopolis / 223344</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fillCredentials("cashier_qobba", "123", "334455")}
+                  className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-300 text-right transition flex flex-col justify-center"
+                >
+                  <span className="font-black text-[11px] text-slate-900 flex items-center gap-1">
+                    <Store className="w-3 h-3 text-slate-600" />
+                    <span>كاشير حدائق القبة</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono mt-0.5">cashier_qobba / 334455</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 3. Couriers - Heliopolis */}
+            <div className="space-y-1 pt-1">
+              <span className="text-[10px] font-bold text-amber-700 block pr-1">
+                🛵 طياري فرع مصر الجديدة وجسر السويس (2 طيارين)
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => fillCredentials("courier_helio1", "123", "101103")}
+                  className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-right transition flex flex-col justify-center"
+                >
+                  <span className="font-black text-[11px] text-emerald-950 flex items-center gap-1">
+                    <Truck className="w-3 h-3 text-emerald-600" />
+                    <span>كابتن إسلام سمير</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-mono mt-0.5">courier_helio1 / 101103</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fillCredentials("courier_helio2", "123", "101104")}
+                  className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-right transition flex flex-col justify-center"
+                >
+                  <span className="font-black text-[11px] text-emerald-950 flex items-center gap-1">
+                    <Truck className="w-3 h-3 text-emerald-600" />
+                    <span>كابتن أحمد فؤاد</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-mono mt-0.5">courier_helio2 / 101104</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4. Couriers - Qobba */}
+            <div className="space-y-1 pt-1">
+              <span className="text-[10px] font-bold text-sky-700 block pr-1">
+                🛵 طياري فرع حدائق القبة (2 طيارين)
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => fillCredentials("courier_qobba1", "123", "201103")}
+                  className="p-2.5 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-300 text-right transition flex flex-col justify-center"
+                >
+                  <span className="font-black text-[11px] text-sky-950 flex items-center gap-1">
+                    <Truck className="w-3 h-3 text-sky-600" />
+                    <span>كابتن محمد طارق</span>
+                  </span>
+                  <span className="text-[10px] text-sky-700 font-mono mt-0.5">courier_qobba1 / 201103</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fillCredentials("courier_qobba2", "123", "201104")}
+                  className="p-2.5 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-300 text-right transition flex flex-col justify-center"
+                >
+                  <span className="font-black text-[11px] text-sky-950 flex items-center gap-1">
+                    <Truck className="w-3 h-3 text-sky-600" />
+                    <span>كابتن مصطفى علي</span>
+                  </span>
+                  <span className="text-[10px] text-sky-700 font-mono mt-0.5">courier_qobba2 / 201104</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Back to Home */}

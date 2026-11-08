@@ -2,8 +2,21 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
+
+const LiveTrackingMap = dynamic(() => import("@/components/LiveTrackingMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[360px] w-full rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-amber-400 font-bold text-xs">
+      <div className="flex flex-col items-center gap-2">
+        <div className="w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin" />
+        <span>جارٍ تحميل خريطة التتبع الحي المباشر... 🛵</span>
+      </div>
+    </div>
+  ),
+});
 import {
   CheckCircle2,
   Clock,
@@ -351,92 +364,24 @@ export default function TrackOrderPage() {
             </div>
           </div>
 
-          {/* Interactive Live Route Radar Visual */}
-          <div className="relative h-48 sm:h-56 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-4 overflow-hidden border border-slate-800 flex flex-col justify-between text-white">
-            {/* Grid Lines Pattern */}
-            <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]" />
-
-            <div className="relative z-10 flex items-center justify-between text-[11px]">
-              <div className="flex items-center gap-1.5 bg-slate-800/80 backdrop-blur-xs px-2.5 py-1 rounded-xl border border-slate-700">
-                <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                <span>إشارة الـ GPS: قوية 100%</span>
-              </div>
-
-              <a
-                href={googleMapsSearchUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="py-1 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] flex items-center gap-1 transition"
-              >
-                <Navigation className="w-3 h-3" />
-                <span>فتح بالخرائط</span>
-              </a>
-            </div>
-
-            {/* Route Line with Moving Courier Indicator */}
-            <div className="relative z-10 my-auto py-4">
-              <div className="relative flex items-center justify-between px-4 sm:px-8">
-                {/* Connecting Path */}
-                <div className="absolute top-1/2 left-8 right-8 -translate-y-1/2 h-1 bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-1000 ${
-                      order.status === "DELIVERED"
-                        ? "w-full"
-                        : order.status === "OUT_FOR_DELIVERY"
-                        ? "w-2/3 animate-pulse"
-                        : "w-1/4"
-                    }`}
-                  />
-                </div>
-
-                {/* Point 1: Store Branch */}
-                <div className="relative z-10 flex flex-col items-center">
-                  <div className="w-10 h-10 rounded-2xl bg-slate-800 border-2 border-amber-400 flex items-center justify-center text-amber-300 shadow-md">
-                    <Store className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10px] font-bold mt-1 text-slate-300">الفرع المجهز</span>
-                </div>
-
-                {/* Point 2: Courier in Flight */}
-                <div className="relative z-10 flex flex-col items-center">
-                  <div
-                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg transition-all ${
-                      order.status === "OUT_FOR_DELIVERY"
-                        ? "bg-amber-500 text-slate-950 ring-4 ring-amber-400/30 scale-110"
-                        : order.status === "DELIVERED"
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-800 text-slate-500 border border-slate-700"
-                    }`}
-                  >
-                    <Truck className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10px] font-black mt-1 text-amber-400">
-                    {order.status === "OUT_FOR_DELIVERY" ? "الطيار لايف 🛵" : "استلام الأوردر"}
-                  </span>
-                </div>
-
-                {/* Point 3: Customer Location */}
-                <div className="relative z-10 flex flex-col items-center">
-                  <div
-                    className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-md ${
-                      order.status === "DELIVERED"
-                        ? "bg-emerald-500 text-slate-950 border-2 border-white"
-                        : "bg-slate-800 border-2 border-slate-600 text-slate-400"
-                    }`}
-                  >
-                    <MapPin className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10px] font-bold mt-1 text-slate-300">موقع العميل</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Live Metrics */}
-            <div className="relative z-10 flex items-center justify-between text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-2">
-              <span>السرعة: {courierLocation?.speed || 32} كم/س</span>
-              <span>الحالة: {order.status === "OUT_FOR_DELIVERY" ? "في الطريق المباشر" : "قيد المعالجة"}</span>
-              <span>الفرع: {order.branch?.name || "فرع حدائق القبة"}</span>
-            </div>
+          {/* Dynamic Interactive Leaflet / OpenStreetMap Live Tracking Map */}
+          <div className="space-y-2">
+            <LiveTrackingMap
+              branch={
+                order.branch?.name?.includes("مصر الجديدة") ||
+                order.deliveryAddress?.includes("مصر الجديدة") ||
+                order.deliveryAddress?.includes("جسر السويس")
+                  ? { name: "فرع مصر الجديدة وجسر السويس", lat: 30.1057199, lng: 31.3212438 }
+                  : { name: "فرع حدائق القبة (الرئيسي)", lat: 30.0913819, lng: 31.2897613 }
+              }
+              courierLocation={courierLocation}
+              customerAddress={order.deliveryAddress}
+              orderStatus={order.status}
+              height="380px"
+              onOpenExternalNavigation={() => {
+                window.open(googleMapsSearchUrl, "_blank");
+              }}
+            />
           </div>
 
           {/* Courier Action Controls */}
