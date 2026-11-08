@@ -390,6 +390,10 @@ export default function CartDrawer({ settings }: { settings?: Settings }) {
       const data = await res.json();
       if (data.success && data.order) {
         setCreatedOrderNumber(data.order.orderNumber);
+        try {
+          localStorage.setItem("vinissia_last_order", data.order.orderNumber);
+          window.dispatchEvent(new Event("vinissia_customer_updated"));
+        } catch (e) {}
         setCheckoutStep("success");
         clearCart();
       } else {

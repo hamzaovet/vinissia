@@ -8,6 +8,7 @@ import CardQRModal from "@/components/CardQRModal";
 import CustomerAuthModal from "@/components/CustomerAuthModal";
 import {
   ShoppingBag,
+  Truck,
   QrCode,
   ShieldCheck,
   Calculator,
@@ -23,20 +24,54 @@ export default function Navbar({ settings }: { settings?: any }) {
   const [staffUser, setStaffUser] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
 
+  const [activeOrderNumber, setActiveOrderNumber] = useState<string | null>(null);
+
   React.useEffect(() => {
     try {
       const savedStaff = localStorage.getItem("vinissia_staff_user");
       if (savedStaff) setStaffUser(JSON.parse(savedStaff));
 
-      const loadCustomer = () => {
+      const checkActiveOrders = async () => {
         try {
           const savedCust = localStorage.getItem("vinissia_customer");
-          setCustomer(savedCust ? JSON.parse(savedCust) : null);
-        } catch {}
+          const custObj = savedCust ? JSON.parse(savedCust) : null;
+          setCustomer(custObj);
+
+          const lastOrd = localStorage.getItem("vinissia_last_order");
+          if (lastOrd) {
+            const res = await fetch(`/api/orders?orderNumber=${encodeURIComponent(lastOrd)}`);
+            const data = await res.json();
+            if (data.success && data.orders && data.orders.length > 0) {
+              const ord = data.orders[0];
+              if (ord.status !== "DELIVERED" && ord.status !== "CANCELLED") {
+                setActiveOrderNumber(ord.orderNumber);
+                return;
+              }
+            }
+          }
+
+          if (custObj?.phone) {
+            const res = await fetch(`/api/orders?phone=${encodeURIComponent(custObj.phone)}`);
+            const data = await res.json();
+            if (data.success && data.orders) {
+              const active = data.orders.find((o: any) => o.status !== "DELIVERED" && o.status !== "CANCELLED");
+              if (active) {
+                setActiveOrderNumber(active.orderNumber);
+                return;
+              }
+            }
+          }
+          setActiveOrderNumber(null);
+        } catch (e) {}
       };
-      loadCustomer();
-      window.addEventListener("vinissia_customer_updated", loadCustomer);
-      return () => window.removeEventListener("vinissia_customer_updated", loadCustomer);
+
+      checkActiveOrders();
+      const interval = setInterval(checkActiveOrders, 10000);
+      window.addEventListener("vinissia_customer_updated", checkActiveOrders);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener("vinissia_customer_updated", checkActiveOrders);
+      };
     } catch {}
   }, []);
 
@@ -96,6 +131,19 @@ export default function Navbar({ settings }: { settings?: any }) {
               <span className="hidden md:inline">كارت الـ 2 QR</span>
             </button>
 
+            {/* Live Tracking Quick Button if Active Order Exists */}
+            {activeOrderNumber && (
+              <Link
+                href={`/track/${activeOrderNumber}`}
+                className="py-2 px-3 sm:px-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-amber-500/25 animate-pulse shrink-0"
+                title="تتبع خط سير الطيار واللوكيشن المباشر لايف"
+              >
+                <Truck className="w-4 h-4 text-slate-950" />
+                <span className="hidden sm:inline">تتبع أوردرك لايف 🛵</span>
+                <span className="sm:hidden">تتبع 🛵</span>
+              </Link>
+            )}
+
             {/* Customer Account Button */}
             {customer ? (
               <button
@@ -105,8 +153,8 @@ export default function Navbar({ settings }: { settings?: any }) {
               >
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                 <User className="w-4 h-4 text-amber-600" />
-                <span className="hidden sm:inline">{customer.name?.split(" ")[0]}</span>
-                <span className="sm:hidden text-[11px]">{customer.name?.split(" ")[0]}</span>
+                <span className="hidden sm:inline">{customer.name?.split(" ")[0]} (طلباتي)</span>
+                <span className="sm:hidden text-[11px]">{customer.name?.split(" ")[0]} (طلباتي)</span>
               </button>
             ) : (
               <button

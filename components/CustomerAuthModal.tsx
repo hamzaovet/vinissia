@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   X,
   User,
@@ -17,13 +18,18 @@ import {
   ArrowRight,
   LogOut,
   RefreshCw,
+  Truck,
+  Package,
+  Clock,
+  ExternalLink,
+  Receipt,
 } from "lucide-react";
 
 interface CustomerAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (customer: any) => void;
-  initialMode?: "login" | "register";
+  initialMode?: "login" | "register" | "profile";
 }
 
 const STORE_BRANCHES = [
@@ -61,8 +67,19 @@ export default function CustomerAuthModal({
   onSuccess,
   initialMode = "register",
 }: CustomerAuthModalProps) {
-  const [mode, setMode] = useState<"login" | "register" | "otp" | "profile">(initialMode);
+  const [mode, setMode] = useState<"login" | "register" | "otp" | "profile">("register");
   const [customer, setCustomer] = useState<any>(null);
+
+  // Profile Sub-tab & Orders state
+  const [profileSubTab, setProfileSubTab] = useState<"orders" | "info">("orders");
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
+  // Edit Profile States
+  const [editName, setEditName] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editZone, setEditZone] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Registration Fields
   const [regName, setRegName] = useState("");
@@ -83,28 +100,57 @@ export default function CustomerAuthModal({
   const [otpTargetEmail, setOtpTargetEmail] = useState("");
   const [otpTargetPhone, setOtpTargetPhone] = useState("");
 
-  // States
+  // Common Feedback States
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Check stored customer on mount & modal open
   useEffect(() => {
     try {
       const stored = localStorage.getItem("vinissia_customer");
       if (stored) {
         const c = JSON.parse(stored);
         setCustomer(c);
+        setEditName(c.name || "");
+        setEditAddress(c.address || "");
+        setEditZone(c.zone || "");
+        setMode("profile");
+        if (c.phone) fetchCustomerOrders(c.phone);
+      } else {
+        setCustomer(null);
+        setMode(initialMode === "profile" ? "login" : initialMode);
       }
     } catch (e) {}
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (initialMode) setMode(initialMode);
     setErrorMsg("");
     setSuccessMsg("");
-  }, [initialMode, isOpen]);
+  }, [isOpen, initialMode]);
 
-  // Handle branch switch to sync zones
+  // Periodic polling for active orders when profile is open
+  useEffect(() => {
+    if (!isOpen || mode !== "profile" || !customer?.phone) return;
+    const interval = setInterval(() => {
+      fetchCustomerOrders(customer.phone, true);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [isOpen, mode, customer?.phone]);
+
+  // Fetch orders from API
+  const fetchCustomerOrders = async (phone: string, silent = false) => {
+    if (!silent) setLoadingOrders(true);
+    try {
+      const res = await fetch(`/api/orders?phone=${encodeURIComponent(phone)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        setOrders(data.orders);
+      }
+    } catch (err) {
+      console.error("Failed to load customer orders:", err);
+    } finally {
+      if (!silent) setLoadingOrders(false);
+    }
+  };
+
   const activeBranch = STORE_BRANCHES.find((b) => b.id === regBranchId) || STORE_BRANCHES[0];
 
   const handleBranchChange = (branchId: string) => {
@@ -197,9 +243,13 @@ export default function CustomerAuthModal({
         localStorage.setItem(`vinissia_verified_${data.customer.phone}`, "true");
         window.dispatchEvent(new Event("vinissia_customer_updated"));
         setCustomer(data.customer);
+        setEditName(data.customer.name || "");
+        setEditAddress(data.customer.address || "");
+        setEditZone(data.customer.zone || "");
         setSuccessMsg("تم تفعيل وتوثيق حسابك بنجاح! 🥛");
+        setMode("profile");
+        fetchCustomerOrders(data.customer.phone);
         if (onSuccess) onSuccess(data.customer);
-        setTimeout(() => onClose(), 1200);
       } else {
         setErrorMsg(data.error || "كود التحقق غير صحيح");
       }
@@ -266,9 +316,13 @@ export default function CustomerAuthModal({
         localStorage.setItem(`vinissia_verified_${data.customer.phone}`, "true");
         window.dispatchEvent(new Event("vinissia_customer_updated"));
         setCustomer(data.customer);
+        setEditName(data.customer.name || "");
+        setEditAddress(data.customer.address || "");
+        setEditZone(data.customer.zone || "");
         setSuccessMsg(data.message || "تم تسجيل الدخول بنجاح!");
+        setMode("profile");
+        fetchCustomerOrders(data.customer.phone);
         if (onSuccess) onSuccess(data.customer);
-        setTimeout(() => onClose(), 800);
       } else if (data.needsVerification) {
         setOtpTargetEmail(data.email);
         setOtpTargetPhone(data.phone);
@@ -284,14 +338,48 @@ export default function CustomerAuthModal({
     }
   };
 
-  // 5. Logout
+  // 5. Update Profile & Address
+  const handleUpdateProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customer?.phone) return;
+    try {
+      setSavingProfile(true);
+      setErrorMsg("");
+      const res = await fetch("/api/auth/customer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "UPDATE_PROFILE",
+          phone: customer.phone,
+          name: editName.trim(),
+          address: editAddress.trim(),
+          zone: editZone.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.customer) {
+        setCustomer(data.customer);
+        localStorage.setItem("vinissia_customer", JSON.stringify(data.customer));
+        window.dispatchEvent(new Event("vinissia_customer_updated"));
+        setSuccessMsg("تم حفظ وتحديث بياناتك وعنوانك بنجاح! 🥛");
+      } else {
+        setErrorMsg(data.error || "تعذر حفظ التعديلات");
+      }
+    } catch {
+      setErrorMsg("حدث خطأ في الاتصال بالخادم");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  // 6. Logout
   const handleLogout = () => {
     if (confirm("هل تريد تسجيل الخروج من حسابك؟")) {
       localStorage.removeItem("vinissia_customer");
       window.dispatchEvent(new Event("vinissia_customer_updated"));
       setCustomer(null);
+      setOrders([]);
       setMode("login");
-      onClose();
     }
   };
 
@@ -302,21 +390,21 @@ export default function CustomerAuthModal({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity"
       />
 
-      <div className="min-h-full flex items-center justify-center p-4">
+      <div className="min-h-full flex items-center justify-center p-3 sm:p-4">
         <div className="relative w-full max-w-lg bg-white rounded-3xl border border-slate-200 text-slate-900 shadow-2xl overflow-hidden my-6">
           {/* Header */}
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-50/60 via-white to-sky-50/60">
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-50/70 via-white to-sky-50/70">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 shadow-sm">
                 <User className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-black text-slate-950 text-base">
-                  {customer && mode === "profile"
-                    ? `حسابي — ${customer.name}`
+                <h3 className="font-black text-slate-950 text-sm sm:text-base">
+                  {mode === "profile" && customer
+                    ? `حسابي وطلباتي — ${customer.name}`
                     : mode === "login"
                     ? "تسجيل دخول العميل 🔑"
                     : mode === "otp"
@@ -337,8 +425,8 @@ export default function CustomerAuthModal({
             </button>
           </div>
 
-          {/* Mode Switcher Tabs (when not in OTP or logged in profile) */}
-          {mode !== "otp" && (
+          {/* Mode Switcher Tabs (when not logged in and not in OTP) */}
+          {mode !== "otp" && mode !== "profile" && (
             <div className="grid grid-cols-2 p-2 bg-slate-50 border-b border-slate-100 text-xs font-black">
               <button
                 type="button"
@@ -374,8 +462,8 @@ export default function CustomerAuthModal({
             </div>
           )}
 
-          {/* Messages */}
-          <div className="px-6 pt-4">
+          {/* Feedback Messages */}
+          <div className="px-5 pt-3">
             {errorMsg && (
               <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-bold mb-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -391,7 +479,355 @@ export default function CustomerAuthModal({
           </div>
 
           {/* Body Content */}
-          <div className="p-6 pt-2 max-h-[75vh] overflow-y-auto">
+          <div className="p-5 pt-2 max-h-[78vh] overflow-y-auto">
+            {/* ─────────────────────────────────────────────────────────────
+                0. LOGGED IN CUSTOMER DASHBOARD (حسابي وطلباتي والتتبع)
+               ───────────────────────────────────────────────────────────── */}
+            {mode === "profile" && customer && (
+              <div className="space-y-4">
+                {/* Greeting Card */}
+                <div className="p-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-white border border-amber-300 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-base shadow-sm">
+                      {customer.name?.charAt(0) || "ع"}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-black text-slate-950 text-sm">
+                          {customer.name}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>موثق 🥛</span>
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 font-mono font-bold mt-0.5">
+                        {customer.phone}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleLogout}
+                    className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 text-xs font-bold transition flex items-center gap-1 border border-slate-200 shadow-xs"
+                    title="تسجيل الخروج"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>خروج</span>
+                  </button>
+                </div>
+
+                {/* Sub Tabs Switcher */}
+                <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl text-xs font-black">
+                  <button
+                    type="button"
+                    onClick={() => setProfileSubTab("orders")}
+                    className={`py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                      profileSubTab === "orders"
+                        ? "bg-white text-slate-950 shadow-sm border border-slate-200/80"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Truck className="w-4 h-4 text-amber-500" />
+                    <span>طلباتي والتتبع الحي</span>
+                    {orders.filter(
+                      (o) => o.status !== "DELIVERED" && o.status !== "CANCELLED"
+                    ).length > 0 && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setProfileSubTab("info")}
+                    className={`py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                      profileSubTab === "info"
+                        ? "bg-white text-slate-950 shadow-sm border border-slate-200/80"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <User className="w-4 h-4 text-sky-600" />
+                    <span>بياناتي وعنواني</span>
+                  </button>
+                </div>
+
+                {/* SUB-TAB 1: ORDERS & LIVE TRACKING */}
+                {profileSubTab === "orders" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-black text-slate-800">
+                        سجل الطلبات والتتبع ({orders.length})
+                      </span>
+                      <button
+                        onClick={() => customer.phone && fetchCustomerOrders(customer.phone)}
+                        disabled={loadingOrders}
+                        className="text-[11px] text-amber-700 hover:text-amber-800 font-bold flex items-center gap-1 transition"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loadingOrders ? "animate-spin" : ""}`} />
+                        <span>تحديث</span>
+                      </button>
+                    </div>
+
+                    {loadingOrders && orders.length === 0 ? (
+                      <div className="p-8 text-center text-slate-500 text-xs font-bold flex flex-col items-center gap-2">
+                        <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                        <span>جارٍ تحميل طلباتك من السيستم... 🥛</span>
+                      </div>
+                    ) : orders.length === 0 ? (
+                      <div className="p-6 text-center bg-slate-50 border border-slate-200 rounded-3xl space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+                          <Package className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h5 className="font-black text-slate-900 text-sm">لا توجد طلبات سابقة</h5>
+                          <p className="text-xs text-slate-500 mt-1">
+                            تفضل باختيار منتجاتك المفضلة من المتجر وأرسل طلبك الآن!
+                          </p>
+                        </div>
+                        <button
+                          onClick={onClose}
+                          className="py-2.5 px-5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-md shadow-amber-500/20"
+                        >
+                          تصفح المنتجات واطلب الآن 🥛
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {orders.map((order) => {
+                          const isActive =
+                            order.status !== "DELIVERED" && order.status !== "CANCELLED";
+                          const statusConfig: { [key: string]: { label: string; bg: string; icon: string } } = {
+                            PENDING: {
+                              label: "قيد الاستلام والمراجعة",
+                              bg: "bg-amber-100 text-amber-900 border-amber-300",
+                              icon: "⏳",
+                            },
+                            PREPARING: {
+                              label: "جارٍ التجهيز بالفرع",
+                              bg: "bg-sky-100 text-sky-900 border-sky-300",
+                              icon: "👨‍🍳",
+                            },
+                            ON_THE_WAY: {
+                              label: "الطيار في الطريق إليك!",
+                              bg: "bg-emerald-100 text-emerald-950 border-emerald-300 animate-pulse",
+                              icon: "🛵",
+                            },
+                            OUT_FOR_DELIVERY: {
+                              label: "الطيار في الطريق إليك!",
+                              bg: "bg-emerald-100 text-emerald-950 border-emerald-300 animate-pulse",
+                              icon: "🛵",
+                            },
+                            DELIVERED: {
+                              label: "تم التوصيل بنجاح",
+                              bg: "bg-emerald-50 text-emerald-800 border-emerald-200",
+                              icon: "✅",
+                            },
+                            CANCELLED: {
+                              label: "طلب ملغي",
+                              bg: "bg-rose-50 text-rose-700 border-rose-200",
+                              icon: "❌",
+                            },
+                          };
+                          const conf = statusConfig[order.status] || {
+                            label: order.status,
+                            bg: "bg-slate-100 text-slate-800 border-slate-200",
+                            icon: "📦",
+                          };
+
+                          let parsedItems: any[] = [];
+                          try {
+                            parsedItems =
+                              typeof order.items === "string"
+                                ? JSON.parse(order.items)
+                                : order.items || [];
+                          } catch (e) {}
+
+                          return (
+                            <div
+                              key={order.id || order.orderNumber}
+                              className={`p-4 rounded-2xl border transition shadow-xs ${
+                                isActive
+                                  ? "bg-gradient-to-br from-amber-50/90 via-white to-sky-50/50 border-amber-400 ring-2 ring-amber-400/20 shadow-md"
+                                  : "bg-white border-slate-200"
+                              }`}
+                            >
+                              {/* Order Top Bar */}
+                              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-2">
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono font-black text-sm text-slate-950">
+                                      #{order.orderNumber}
+                                    </span>
+                                    {isActive && (
+                                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-bold block mt-0.5">
+                                    {new Date(order.createdAt).toLocaleString("ar-EG", {
+                                      day: "numeric",
+                                      month: "short",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className={`px-2.5 py-1 rounded-xl border text-[11px] font-black flex items-center gap-1.5 ${conf.bg}`}
+                                >
+                                  <span>{conf.icon}</span>
+                                  <span>{conf.label}</span>
+                                </div>
+                              </div>
+
+                              {/* Details */}
+                              <div className="space-y-1.5 text-xs text-slate-700">
+                                <div className="flex justify-between items-start gap-2">
+                                  <span className="text-slate-500 shrink-0">الأصناف:</span>
+                                  <span className="font-bold text-slate-900 text-left line-clamp-2">
+                                    {parsedItems
+                                      .map(
+                                        (it: any) =>
+                                          `${it.nameAr || it.name} (${it.quantity || it.qty || 1})`
+                                      )
+                                      .join("، ") || "أصناف متنوعة"}
+                                  </span>
+                                </div>
+
+                                <div className="flex justify-between items-center">
+                                  <span className="text-slate-500">المبلغ المطلوب:</span>
+                                  <span className="font-mono font-black text-amber-600 text-sm">
+                                    {order.totalAmount} ج.م
+                                  </span>
+                                </div>
+
+                                {order.branch && (
+                                  <div className="flex justify-between items-center text-[11px] text-slate-500">
+                                    <span>الفرع المسؤول:</span>
+                                    <span className="font-bold text-slate-800">
+                                      {order.branch.name}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {order.courier && (
+                                  <div className="flex justify-between items-center text-[11px] text-emerald-900 bg-emerald-50/90 p-2 rounded-xl border border-emerald-200">
+                                    <span className="flex items-center gap-1 font-bold">
+                                      <Truck className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>كابتن التوصيل: {order.courier.name}</span>
+                                    </span>
+                                    <a
+                                      href={`tel:${order.courier.phone}`}
+                                      className="font-mono font-black text-emerald-700 underline text-[11px]"
+                                    >
+                                      📞 {order.courier.phone}
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Big Action Link to Live Tracking Map */}
+                              <div className="pt-3">
+                                <Link
+                                  href={`/track/${order.orderNumber}`}
+                                  onClick={onClose}
+                                  className={`w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition ${
+                                    isActive
+                                      ? "bg-slate-950 hover:bg-slate-900 text-amber-400 shadow-md shadow-slate-950/20 hover:scale-[1.01]"
+                                      : "bg-slate-100 hover:bg-slate-200 text-slate-800"
+                                  }`}
+                                >
+                                  <Truck className="w-4 h-4 text-amber-400" />
+                                  <span>
+                                    {isActive
+                                      ? "تتبع خط سير الطيار واللوكيشن المباشر لايف 🗺️📡"
+                                      : "عرض تفاصيل الطلب والفاتورة 🧾"}
+                                  </span>
+                                  <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                                </Link>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* SUB-TAB 2: PROFILE & ADDRESS */}
+                {profileSubTab === "info" && (
+                  <form onSubmit={handleUpdateProfileSubmit} className="space-y-3.5">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <User className="w-3.5 h-3.5 text-amber-600" />
+                        <span>الاسم الكريم بالكامل</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500 transition"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <Phone className="w-3.5 h-3.5 text-amber-600" />
+                        <span>رقم الهاتف المسجل (لا يمكن تغييره)</span>
+                      </label>
+                      <input
+                        type="text"
+                        disabled
+                        value={customer.phone}
+                        className="w-full py-2.5 px-3 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-500 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <Building2 className="w-3.5 h-3.5 text-slate-600" />
+                        <span>الفرع والمنطقة</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editZone}
+                        onChange={(e) => setEditZone(e.target.value)}
+                        placeholder="مثال: فرع حدائق القبة — الزيتون"
+                        className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500 transition"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-rose-600" />
+                        <span>عنوان التوصيل المحفوظ بالتفصيل</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editAddress}
+                        onChange={(e) => setEditAddress(e.target.value)}
+                        placeholder="اسم الشارع، رقم العمارة، الدور، الشقة"
+                        className="w-full py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-amber-500 transition"
+                      />
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={savingProfile}
+                        className="w-full py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-md shadow-amber-500/20"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>{savingProfile ? "جارٍ الحفظ..." : "حفظ وتحديث بياناتي 💾"}</span>
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+
             {/* ─────────────────────────────────────────────────────────────
                 1. REGISTER FORM (عميل جديد)
                ───────────────────────────────────────────────────────────── */}
@@ -455,7 +891,7 @@ export default function CustomerAuthModal({
                   />
                 </div>
 
-                {/* Credentials: Username & Password */}
+                {/* Credentials */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
@@ -489,7 +925,7 @@ export default function CustomerAuthModal({
                   </div>
                 </div>
 
-                {/* Delivery Branch & Zone */}
+                {/* Branch & Zone */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
@@ -563,7 +999,7 @@ export default function CustomerAuthModal({
             {mode === "login" && (
               <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div className="p-3 bg-sky-50/80 border border-sky-200 rounded-2xl text-[11px] text-sky-950 font-bold leading-relaxed">
-                  👋 أهلاً بك! سجل دخولك باسم المستخدم أو رقم هاتفك المحمول، وستظهر كل بياناتك وعنوانك المحفوظة تلقائياً في السلة والدليفري.
+                  👋 أهلاً بك! سجل دخولك باسم المستخدم أو رقم هاتفك المحمول، وستظهر كل طلباتك وبياناتك وعنوانك المحفوظة تلقائياً.
                 </div>
 
                 <div className="space-y-1.5">

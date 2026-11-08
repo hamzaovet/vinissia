@@ -5,6 +5,7 @@ import { useCart } from "@/lib/cartContext";
 import CardQRModal from "@/components/CardQRModal";
 import {
   ShoppingBag,
+  ArrowRight,
   Plus,
   Scale,
   Sparkles,
@@ -48,6 +49,50 @@ interface Category {
 }
 
 export default function HomePage() {
+  const [activeOrderLive, setActiveOrderLive] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchActive = async () => {
+      try {
+        const last = localStorage.getItem("vinissia_last_order");
+        if (last) {
+          const res = await fetch(`/api/orders?orderNumber=${encodeURIComponent(last)}`);
+          const data = await res.json();
+          if (data.success && data.orders && data.orders.length > 0) {
+            const ord = data.orders[0];
+            if (ord.status !== "DELIVERED" && ord.status !== "CANCELLED") {
+              setActiveOrderLive(ord);
+              return;
+            }
+          }
+        }
+        const savedCust = localStorage.getItem("vinissia_customer");
+        if (savedCust) {
+          const c = JSON.parse(savedCust);
+          if (c.phone) {
+            const res = await fetch(`/api/orders?phone=${encodeURIComponent(c.phone)}`);
+            const data = await res.json();
+            if (data.success && data.orders) {
+              const act = data.orders.find((o: any) => o.status !== "DELIVERED" && o.status !== "CANCELLED");
+              if (act) {
+                setActiveOrderLive(act);
+                return;
+              }
+            }
+          }
+        }
+        setActiveOrderLive(null);
+      } catch (e) {}
+    };
+
+    fetchActive();
+    const interval = setInterval(fetchActive, 10000);
+    window.addEventListener("vinissia_customer_updated", fetchActive);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("vinissia_customer_updated", fetchActive);
+    };
+  }, []);
   const { addItem, setIsOpen } = useCart();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -276,6 +321,42 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ACTIVE ORDER LIVE TRACKING NOTIFICATION BANNER */}
+      {activeOrderLive && (
+        <section className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 p-4 sm:p-5 rounded-3xl shadow-xl shadow-amber-500/20 border-2 border-amber-300 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-slate-950 text-amber-400 flex items-center justify-center shrink-0 shadow-md">
+              <Truck className="w-6 h-6 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-black text-sm sm:text-base">
+                  أوردرك قيد التنفيذ والتوصيل الآن (#{activeOrderLive.orderNumber})
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-950 text-amber-400 font-black text-[11px] shadow-sm">
+                  {activeOrderLive.status === "ON_THE_WAY"
+                    ? "🛵 الطيار في الطريق إليك"
+                    : activeOrderLive.status === "PREPARING"
+                    ? "👨‍🍳 جاري التجهيز بالفرع"
+                    : "⏳ قيد المراجعة والاستلام"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-900 font-bold mt-1">
+                المبلغ المطلوب: {activeOrderLive.totalAmount} ج.م • الفرع: {activeOrderLive.branch?.name || "ألبان فينيسيا"}
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={`/track/${activeOrderLive.orderNumber}`}
+            className="w-full sm:w-auto py-3 px-6 rounded-2xl bg-slate-950 hover:bg-slate-900 text-amber-400 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition hover:scale-105 active:scale-95 shrink-0"
+          >
+            <span>متابعة خط سير الطيار واللوكيشن المباشر 🗺️📡</span>
+            <ArrowRight className="w-4 h-4 rotate-180" />
+          </a>
+        </section>
+      )}
 
       {/* 2. CATEGORY TABS & SEARCH */}
       <section id="categories" className="space-y-4">

@@ -329,6 +329,40 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, customer: sanitizeCustomer(customer) });
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // 6. UPDATE CUSTOMER PROFILE
+    // ─────────────────────────────────────────────────────────────
+    if (action === "UPDATE_PROFILE") {
+      const { phone, name, address, zone } = body;
+      if (!phone) {
+        return NextResponse.json({ success: false, error: "رقم الهاتف مطلوب للتحديث" }, { status: 400 });
+      }
+
+      const cleanPhone = String(phone).trim();
+      const existing = await prisma.customer.findUnique({
+        where: { phone: cleanPhone },
+      });
+
+      if (!existing) {
+        return NextResponse.json({ success: false, error: "العميل غير موجود" }, { status: 404 });
+      }
+
+      const updated = await prisma.customer.update({
+        where: { phone: cleanPhone },
+        data: {
+          name: name ? String(name).trim() : existing.name,
+          address: address ? String(address).trim() : existing.address,
+          zone: zone ? String(zone).trim() : existing.zone,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        customer: sanitizeCustomer(updated),
+        message: "تم تحديث وحفظ بياناتك بنجاح! 🥛",
+      });
+    }
+
     return NextResponse.json({ success: false, error: "إجراء غير معروف" }, { status: 400 });
   } catch (error: any) {
     console.error("Customer Auth Error:", error);
